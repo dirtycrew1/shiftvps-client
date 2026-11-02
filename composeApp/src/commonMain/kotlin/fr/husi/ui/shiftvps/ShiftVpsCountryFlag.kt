@@ -26,6 +26,7 @@ internal fun ShiftVpsCountryFlag(countryCode: String, modifier: Modifier = Modif
         "DE" -> Res.drawable.flag_de
         "EE" -> Res.drawable.flag_ee
         "KZ" -> Res.drawable.flag_kz
+        "GE" -> Res.drawable.flag_ge
         else -> null
     }
     if (resource == null) {

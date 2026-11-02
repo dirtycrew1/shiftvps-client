@@ -353,18 +353,7 @@ class ShiftVpsController : AutoCloseable {
             requireActiveAccount(manifest.account)
             val parsed = withContext(Dispatchers.Default) { RawUpdater.parseRaw(api.feed(token)) }
                 ?.takeIf { it.isNotEmpty() } ?: throw ClientApiException("invalid_feed")
-            require(parsed.size <= 256)
-            require(parsed.all { bean ->
-                bean is VLESSBean || bean is TrojanBean || bean is NaiveBean || bean is ShadowsocksBean ||
-                    bean is HysteriaBean || bean is MieruBean || bean is TrustTunnelBean || bean is TuicBean || bean is HttpBean
-            })
-            parsed.forEach { bean ->
-                require(bean.serverAddress != "46.182.25.146")
-                bean.customOutboundJson = ""
-                bean.customConfigJson = ""
-            }
-            val compatible = parsed.filter { isManagedProfileCompatible(ProxyEntity().putBean(it)) }
-            if (compatible.isEmpty()) throw ClientApiException("unsupported_transport")
+            val compatible = prepareManagedFeed(parsed)
             if (generation != sessionGeneration) return
             val group = managedGroup()
             val update = RawUpdater.tidyProxies(compatible, SubscriptionBean(), group, false, mutableListOf())

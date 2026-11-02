@@ -216,7 +216,7 @@ The primary Button uses the recorded vertical blue gradient, full width and the 
 
 The controller supplies logical server choices and their order. Refresh and latency checks preserve usable cached choices. Unknown latency is a dash; failure is an unavailable state. Selection uses a native radio marker, a written selected label and tint together. While connected, the list remains visible and changing servers requires disconnecting first.
 
-Flags are native vectors from pinned MIT-licensed flag-icons artwork, with source, conversion details and provenance in [art/flags/README.md](art/flags/README.md). Only authoritative node country metadata selects NL, LT, LV, IL, SE, FI, DE, EE or KZ. Labels and hostnames are not parsed for country. Unknown or unsupported metadata uses the neutral globe. Country names remain text and the flag has no separate accessibility announcement.
+Flags are native vectors from pinned MIT-licensed flag-icons artwork, with source, conversion details and provenance in [art/flags/README.md](art/flags/README.md). Only authoritative node country metadata selects NL, LT, LV, IL, SE, FI, DE, EE, KZ or GE. Labels and hostnames are not parsed for country. Unknown or unsupported metadata uses the neutral globe. Country names remain text and the flag has no separate accessibility announcement.
 
 The user requested removal of the caption “Сайты .ru — напрямую” only. It is absent from the UI; the actual centrally managed .ru DIRECT policy is retained unchanged.
 

@@ -110,7 +110,7 @@ jobs:
             package: windows
             apt_packages: nsis osslsigncode
           - id: darwin-arm64
-            runner: macos-26
+            runner: macos-26-intel
             target: darwin/arm64
             package: macos
     steps:
