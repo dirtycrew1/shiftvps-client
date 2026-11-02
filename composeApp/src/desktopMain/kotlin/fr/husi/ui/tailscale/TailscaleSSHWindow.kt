@@ -11,7 +11,7 @@ import androidx.compose.ui.window.v2.Window
 import androidx.compose.ui.window.v2.rememberWindowStateWithBounds
 import fr.husi.compose.theme.AppTheme
 import fr.husi.resources.Res
-import fr.husi.resources.ic_service_active
+import fr.husi.resources.ic_shiftvps
 import fr.husi.resources.tailscale_ssh
 import fr.husi.tailscale.TailscaleSSHSessionManager
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -48,7 +48,7 @@ fun TailscaleSSHWindow(manager: TailscaleSSHSessionManager = koinInject()) {
         onCloseRequest = close,
         state = windowState,
         title = stringResource(Res.string.tailscale_ssh),
-        icon = painterResource(Res.drawable.ic_service_active),
+        icon = painterResource(Res.drawable.ic_shiftvps),
     ) {
         LaunchedEffect(Unit) {
             TailscaleSSHWindowState.focusRequests.collect {

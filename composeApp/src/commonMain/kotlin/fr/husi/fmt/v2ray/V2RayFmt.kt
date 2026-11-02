@@ -42,7 +42,6 @@ import fr.husi.ktx.blankAsNull
 import fr.husi.ktx.kxs
 import fr.husi.ktx.listByLineOrComma
 import fr.husi.ktx.queryParameterNotBlank
-import fr.husi.ktx.readableMessage
 import fr.husi.ktx.toJsonObjectKxs
 import io.github.xchacha20_poly1305.kpuri.Url
 import io.github.xchacha20_poly1305.kpuri.buildUrl
@@ -93,7 +92,7 @@ fun parseV2Ray(rawUrl: String): StandardV2RayBean {
         try {
             return parseV2RayN(rawUrl)
         } catch (e: Exception) {
-            Logs.i("try v2rayN: " + e.readableMessage)
+            Logs.i("V2RayN link parse failed; trying URI format")
         }
     }
 

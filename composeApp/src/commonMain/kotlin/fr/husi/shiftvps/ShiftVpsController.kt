@@ -6,7 +6,6 @@ import fr.husi.bg.ServiceState
 import fr.husi.bg.buildPluginSpecs
 import fr.husi.bg.initPlugins
 import fr.husi.core.CoreClient
-import fr.husi.core.urlTestOptions
 import fr.husi.database.DataStore
 import fr.husi.database.GroupManager
 import fr.husi.database.ProxyEntity
@@ -27,6 +26,7 @@ import fr.husi.fmt.trusttunnel.TrustTunnelBean
 import fr.husi.fmt.tuic.TuicBean
 import fr.husi.fmt.v2ray.VLESSBean
 import fr.husi.group.RawUpdater
+import fr.husi.ktx.Logs
 import fr.husi.platform.PlatformInfo
 import fr.husi.repository.resolveRepository
 import kotlinx.coroutines.CancellationException
@@ -420,18 +420,22 @@ class ShiftVpsController : AutoCloseable {
                 launch {
                     gate.withPermit {
                         val cache = mutableListOf<File>()
-                        val latency = try {
+                        val result = try {
                             val config = withContext(Dispatchers.IO) { buildConfig(profile, forTest = true) }
                             val plugins = withContext(Dispatchers.IO) {
                                 buildPluginSpecs(config.metadata, initPlugins(config.metadata, cache))
                             }
-                            core.standaloneUrlTest(config.configJson, "", policy.latency.testUrl,
-                                policy.latency.timeoutMs, urlTestOptions(false, false), plugins).takeIf { it > 0 }
+                            probeServer(core, config, policy.latency, plugins)
                         } catch (error: Exception) {
                             if (error is CancellationException) throw error
-                            null
+                            ServerProbeResult.Inconclusive(ServerProbeFailure.Setup)
                         } finally { cache.forEach { it.delete() } }
-                        measurements[profile.id] = candidate(profile).copy(latencyMs = latency, checking = false, checked = true)
+                        val latency = (result as? ServerProbeResult.Success)?.latencyMs
+                        val failure = (result as? ServerProbeResult.Inconclusive)?.reason
+                        if (failure != null) Logs.w("ShiftVPS server probe inconclusive: ${failure.name}")
+                        measurements[profile.id] = candidate(profile).copy(
+                            latencyMs = latency, checking = false, checked = true, probeFailure = failure,
+                        )
                         publishProfiles()
                     }
                 }
@@ -439,7 +443,7 @@ class ShiftVpsController : AutoCloseable {
             // One bounded batch per survey; failure rows are most useful when a large list is probed.
             candidates().sortedBy { if (it.checked && it.latencyMs == null) 0 else 1 }.take(20).forEach { candidate ->
                 profiles.firstOrNull { it.id == candidate.profileId }?.let { profile ->
-                    metric("latency_sample", profile, candidate.latencyMs, if (candidate.latencyMs == null) "unknown" else null)
+                    metric("latency_sample", profile, candidate.latencyMs, candidate.probeFailure?.metricCode)
                 }
             }
             if (!userSelectedServer && !state.value.serviceState.started && !connectionPending) {

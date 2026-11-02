@@ -100,6 +100,7 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
     val entities = ArrayList<AbstractBean>()
     val entitiesByLine = ArrayList<AbstractBean>()
 
+    // Imported links and parser exceptions can contain credentials.
     suspend fun String.parseLink(entities: MutableList<AbstractBean>) {
         if (startsWith("sing-box://import-remote-profile?") || startsWith("husi://subscription?")) {
             throw SubscriptionFoundException(this)
@@ -108,138 +109,138 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
         val scheme = this.substringBefore("://")
         when (scheme) {
             "husi" -> {
-                Logs.d("Try parse universal link: $this")
+                Logs.d("Try parse universal link")
                 runCatching {
                     entities.add(parseUniversal(this))
                 }.onFailure {
-                    Logs.w(it)
+                    Logs.w("Universal link parse failed")
                 }
             }
 
             "socks", "socks4", "socks4a", "socks5" -> {
-                Logs.d("Try parse socks link: $this")
+                Logs.d("Try parse socks link")
                 runCatching {
                     entities.add(parseSOCKS(this))
                 }.onFailure {
-                    Logs.w(it)
+                    Logs.w("SOCKS link parse failed")
                 }
             }
 
             "http", "https" -> {
-                Logs.d("Try parse http link: $this")
+                Logs.d("Try parse http link")
                 try {
                     entities.add(parseHttp(this))
                 } catch (e: Exception) {
-                    Logs.w(e)
+                    Logs.w("HTTP link parse failed")
                 }
             }
 
             "vmess", "vless" -> {
-                Logs.d("Try parse v2ray link: $this")
+                Logs.d("Try parse v2ray link")
                 runCatching {
                     entities.add(parseV2Ray(this))
                 }.onFailure {
-                    Logs.w(it)
+                    Logs.w("V2Ray link parse failed")
                 }
             }
 
             // Trojan-go was partially compatible
             "trojan", "trojan-go" -> {
-                Logs.d("Try parse trojan link: $this")
+                Logs.d("Try parse trojan link")
                 runCatching {
                     entities.add(parseTrojan(this))
                 }.onFailure {
-                    Logs.w(it)
+                    Logs.w("Trojan link parse failed")
                 }
             }
 
             "ss" -> {
-                Logs.d("Try parse shadowsocks link: $this")
+                Logs.d("Try parse shadowsocks link")
                 runCatching {
                     entities.add(parseShadowsocks(this))
                 }.onFailure {
-                    Logs.w(it)
+                    Logs.w("Shadowsocks link parse failed")
                 }
             }
 
             "naive+https", "naive+quic" -> {
-                Logs.d("Try parse naive link: $this")
+                Logs.d("Try parse naive link")
                 runCatching {
                     entities.add(parseNaive(this))
                 }.onFailure {
-                    Logs.w(it)
+                    Logs.w("Naive link parse failed")
                 }
             }
 
             "hysteria" -> {
-                Logs.d("Try parse hysteria1 link: $this")
+                Logs.d("Try parse hysteria1 link")
                 runCatching {
                     entities.add(parseHysteria1(this))
                 }.onFailure {
-                    Logs.w(it)
+                    Logs.w("Hysteria1 link parse failed")
                 }
             }
 
             "hysteria2", "hy2" -> {
-                Logs.d("Try parse hysteria2 link: $this")
+                Logs.d("Try parse hysteria2 link")
                 runCatching {
                     entities.add(parseHysteria2(this))
                 }.onFailure {
-                    Logs.w(it)
+                    Logs.w("Hysteria2 link parse failed")
                 }
             }
 
             "tuic" -> {
-                Logs.d("Try parse TUIC link: $this")
+                Logs.d("Try parse TUIC link")
                 runCatching {
                     entities.add(parseTuic(this))
                 }.onFailure {
-                    Logs.w(it)
+                    Logs.w("TUIC link parse failed")
                 }
             }
 
             "juicity" -> {
-                Logs.d("Try parse Juicity link: $this")
+                Logs.d("Try parse Juicity link")
                 runCatching {
                     entities.add(parseJuicity(this))
                 }.onFailure {
-                    Logs.w(it)
+                    Logs.w("Juicity link parse failed")
                 }
             }
 
             "sq", "shadowquic" -> {
-                Logs.d("Try parse ShadowQUIC link: $this")
+                Logs.d("Try parse ShadowQUIC link")
                 runCatching {
                     entities.add(parseShadowQUIC(this))
                 }.onFailure {
-                    Logs.w(it)
+                    Logs.w("ShadowQUIC link parse failed")
                 }
             }
 
             "mierus" -> {
-                Logs.d("Try parse Mieru link: $this")
+                Logs.d("Try parse Mieru link")
                 runCatching {
                     entities.add(parseMieru(this))
                 }.onFailure {
-                    Logs.w(it)
+                    Logs.w("Mieru link parse failed")
                 }
             }
 
             "anytls" -> {
-                Logs.d("Try parse AnyTLS link: $this")
+                Logs.d("Try parse AnyTLS link")
                 runCatching {
                     entities.add(parseAnyTLS(this))
                 }.onFailure {
-                    Logs.w(it)
+                    Logs.w("AnyTLS link parse failed")
                 }
             }
 
             "tt" -> {
-                Logs.d("Try parse TrustTunnel link: $this")
+                Logs.d("Try parse TrustTunnel link")
                 runCatching {
                     entities.add(parseTrustTunnel(this))
                 }.onFailure {
-                    Logs.w(it)
+                    Logs.w("TrustTunnel link parse failed")
                 }
             }
 

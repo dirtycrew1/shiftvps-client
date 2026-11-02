@@ -15,7 +15,6 @@ import stat
 import subprocess
 import sys
 import tempfile
-from urllib.parse import urlsplit
 import xml.etree.ElementTree as ET
 
 from cryptography.hazmat.primitives import hashes, serialization
@@ -25,6 +24,7 @@ from cryptography.hazmat.primitives.asymmetric import ed25519, padding, rsa
 ROOT = Path(__file__).resolve().parents[1]
 SPARKLE = "http://www.andymatuschak.org/xml-namespaces/sparkle"
 RELEASE_BASE = "https://github.com/dirtycrew1/shiftvps-client/releases/download"
+OWN_DOWNLOAD_HOSTS = ("shiftvps.ru", "web-backup.shiftvps.ru")
 ARTIFACT_TYPES = {
     **{f"android-{abi}": ".apk" for abi in ("arm64-v8a", "armeabi-v7a", "x86_64", "x86")},
     **{f"windows-{arch}": ".exe" for arch in ("amd64", "arm64")},
@@ -68,14 +68,28 @@ def validate_version(version_name, version_code, previous_version_code, channel)
         raise ValueError("Current clients support only the stable update channel")
 
 
-def require_artifact_url(url, version_name, filename):
-    """Accept exactly the canonical own-release HTTPS URL, without redirects or credentials."""
+def normalize_download_base_url(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        candidate = value.removesuffix("/")
+        for host in OWN_DOWNLOAD_HOSTS:
+            if candidate in (f"https://{host}/downloads", f"https://{host}:443/downloads"):
+                return f"https://{host}/downloads"
+    raise ValueError("Download base must be the HTTPS /downloads directory on an allowed own host")
+
+
+def artifact_download_url(version_name, filename, download_base_url=None):
     if not ASSET_PATTERN.fullmatch(filename):
         raise ValueError("Artifact filename must use only safe ASCII release-asset characters")
-    parsed = urlsplit(url)
-    expected = f"{RELEASE_BASE}/v{version_name}/{filename}"
-    if parsed.scheme != "https" or parsed.netloc != "github.com" or url != expected:
-        raise ValueError("Artifact URL must refer to this version in the own GitHub release")
+    base = normalize_download_base_url(download_base_url) or f"{RELEASE_BASE}/v{version_name}"
+    return f"{base}/{filename}"
+
+
+def require_artifact_url(url, version_name, filename, download_base_url=None):
+    """Accept only the generated canonical URL, with no redirects or URL decorations."""
+    if url != artifact_download_url(version_name, filename, download_base_url):
+        raise ValueError("Artifact URL must match the selected own release download location")
 
 
 @dataclass(frozen=True)
@@ -94,7 +108,8 @@ def file_identity(path):
     return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns
 
 
-def inspect_artifacts(mapping, version_name, require_all=False):
+def inspect_artifacts(mapping, version_name, require_all=False, download_base_url=None):
+    download_base_url = normalize_download_base_url(download_base_url)
     if not mapping or not set(mapping).issubset(ARTIFACT_TYPES):
         raise ValueError("Provide at least one artifact with a supported platform and architecture key")
     if require_all and not REQUIRED_ARTIFACTS.issubset(mapping):
@@ -113,8 +128,7 @@ def inspect_artifacts(mapping, version_name, require_all=False):
             raise ValueError("Duplicate artifact paths or release asset filenames are ambiguous")
         paths.add(path)
         names.add(filename.lower())
-        url = f"{RELEASE_BASE}/v{version_name}/{filename}"
-        require_artifact_url(url, version_name, filename)
+        url = artifact_download_url(version_name, filename, download_base_url)
         identity = file_identity(path)
         size = identity[2]
         maximum = 512 * 1024 * 1024 if key.startswith("android-") else 2 * 1024 * 1024 * 1024
@@ -182,10 +196,10 @@ def appcast(artifact, version_name, version_code):
 
 
 def build_outputs(mapping, version_name, version_code, previous_version_code, channel, ed_key, rsa_key, pinned,
-                  require_all=False):
+                  require_all=False, download_base_url=None):
     validate_version(version_name, version_code, previous_version_code, channel)
     verify_signing_keys(ed_key, rsa_key, pinned)
-    artifacts = inspect_artifacts(mapping, version_name, require_all)
+    artifacts = inspect_artifacts(mapping, version_name, require_all, download_base_url)
     artifacts = [sign_archive(item, ed_key) if not item.key.startswith("android-") else item for item in artifacts]
     outputs = {}
     android = {item.key: {"url": item.url, "sha256": item.sha256, "size": item.size}
@@ -341,6 +355,7 @@ def main():
     parser.add_argument("--version-code", required=True, type=int)
     parser.add_argument("--previous-version-code", required=True, type=int)
     parser.add_argument("--channel", required=True, choices=["stable"])
+    parser.add_argument("--download-base-url", help="Optional HTTPS /downloads base on an allowed own host")
     parser.add_argument("--ed25519-key", required=True, type=Path)
     parser.add_argument("--rsa-key", required=True, type=Path)
     passwords = parser.add_mutually_exclusive_group(required=True)
@@ -352,7 +367,7 @@ def main():
         mapping = parse_artifact_arguments(args.artifact)
         validate_version(args.version_name, args.version_code, args.previous_version_code, args.channel)
         # Find missing/ambiguous artifacts before requesting access to signing keys.
-        inspect_artifacts(mapping, args.version_name, args.require_all)
+        inspect_artifacts(mapping, args.version_name, args.require_all, args.download_base_url)
         if args.passwords_file:
             path = require_protected_password_file(args.passwords_file)
             with path.open("rb") as stream:
@@ -363,7 +378,7 @@ def main():
         del password_values
         pinned = read_json((ROOT / "release/update-public-keys.json").read_bytes())
         outputs = build_outputs(mapping, args.version_name, args.version_code, args.previous_version_code,
-                                args.channel, ed_key, rsa_key, pinned, args.require_all)
+                                args.channel, ed_key, rsa_key, pinned, args.require_all, args.download_base_url)
         write_outputs(outputs, args.output)
     except (ValueError, OSError) as error:
         # Never print parsed password data, key contents, command arguments or tracebacks.

@@ -117,7 +117,7 @@ object OpenOnlineConfigUpdater : GroupUpdater() {
                 .build()
             certSha256 = token.certSha256?.blankAsNull()
         } catch (e: Exception) {
-            Logs.e("OOC token check failed, token = ${subscription.token}", e)
+            Logs.e("OOC token check failed")
             error(repository.getString(Res.string.ooc_subscription_token_invalid))
         }
 
@@ -134,7 +134,7 @@ object OpenOnlineConfigUpdater : GroupUpdater() {
         val oocResponse: OOCResponse = try {
             kxs.decodeFromString(response.content)
         } catch (e: Exception) {
-            Logs.e("OOC response parse failed", e)
+            Logs.e("OOC response parse failed")
             error(repository.getString(Res.string.ooc_subscription_token_invalid))
         }
 

@@ -28,7 +28,7 @@ import androidx.compose.ui.window.v2.DialogWindow
 import androidx.compose.ui.window.v2.rememberDialogStateWithBounds
 import fr.husi.compose.theme.AppTheme
 import fr.husi.resources.Res
-import fr.husi.resources.ic_service_active
+import fr.husi.resources.ic_shiftvps
 import fr.husi.ui.LocalSnackbarEmitter
 import fr.husi.ui.SnackbarEmitter
 import fr.husi.ui.SnackbarEmitterEffect
@@ -47,7 +47,7 @@ actual fun WindowedDialog(
         onCloseRequest = onDismissRequest,
         state = rememberDialogStateWithBounds(initialSize = windowSize),
         title = title,
-        icon = painterResource(Res.drawable.ic_service_active),
+        icon = painterResource(Res.drawable.ic_shiftvps),
         modalityType = DialogModalityType.Modeless,
         onPreviewKeyEvent = { event ->
             if (event.type == KeyEventType.KeyDown && event.key == Key.Escape) {

@@ -67,8 +67,19 @@ class ShiftVpsServerGroupsTest {
         assertEquals(3L, chooseProfile(cluster, candidates))
         assertEquals(true, clusterRow(cluster, candidates).reachable)
         val failed = candidates.map { it.copy(latencyMs = null) }
-        assertEquals(false, clusterRow(cluster, failed).reachable)
+        assertEquals(null, clusterRow(cluster, failed).reachable)
         assertEquals(1L, chooseProfile(cluster, failed))
+    }
+
+    @Test
+    fun `completed probes without HTTP evidence do not declare a node unavailable`() {
+        val candidates = listOf(
+            ServerCandidate(1, endpointA, "Reality", checked = true),
+            ServerCandidate(2, endpointB, "WebSocket", checked = true),
+        )
+        val cluster = serverClusters(candidates, listOf(node)).single()
+        assertEquals(null, clusterRow(cluster, candidates).reachable)
+        assertEquals(null, clusterRow(cluster, candidates, pinnedProfileId = 1).reachable)
     }
 
     @Test

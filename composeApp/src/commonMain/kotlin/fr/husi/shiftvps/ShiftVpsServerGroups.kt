@@ -9,6 +9,7 @@ internal data class ServerCandidate(
     val latencyMs: Int? = null,
     val checked: Boolean = false,
     val checking: Boolean = false,
+    val probeFailure: ServerProbeFailure? = null,
 )
 
 internal data class ServerCluster(val id: Long, val name: String, val profileIds: List<Long>, val countryCode: String = "")
@@ -54,11 +55,8 @@ internal fun clusterRow(
     val members = candidates.filter { it.profileId in cluster.profileIds }
     val measured = chooseProfile(cluster, candidates, pinnedProfileId)?.let { id -> members.firstOrNull { it.profileId == id } }
     val latency = measured?.latencyMs?.takeIf { it > 0 }
-    val reachable = when {
-        latency != null -> true
-        members.isNotEmpty() && members.all { it.checked && !it.checking } -> false
-        else -> null
-    }
+    // A failed request can also mean a bad test setup, a core error, or a test-site failure.
+    val reachable = if (latency != null) true else null
     return ShiftVpsServer(cluster.id, cluster.name, latency, members.any { it.checking }, reachable, cluster.countryCode)
 }
 

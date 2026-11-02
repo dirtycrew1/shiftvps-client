@@ -44,7 +44,7 @@ import fr.husi.repository.DesktopRepository
 import fr.husi.repository.resolveDesktopRepository
 import fr.husi.resources.Res
 import fr.husi.resources.app_name
-import fr.husi.resources.ic_service_active
+import fr.husi.resources.ic_shiftvps
 import fr.husi.ui.AuthChallengeDialogs
 import fr.husi.ui.MainScreen
 import fr.husi.utils.CrashHandler
@@ -257,7 +257,7 @@ class DesktopMain(
 
             DesktopResourceEnvironmentFix {
                 val appName = stringResource(Res.string.app_name)
-                val iconServiceActive = painterResource(Res.drawable.ic_service_active)
+                val appIcon = painterResource(Res.drawable.ic_shiftvps)
 
                 if (!noTray) {
                     HusiTray(
@@ -274,7 +274,7 @@ class DesktopMain(
                     state = windowState,
                     visible = windowVisible,
                     title = appName,
-                    icon = iconServiceActive,
+                    icon = appIcon,
                 ) {
                     AppTheme {
                         MainScreen()

@@ -172,6 +172,51 @@ class UpdateFeedsTest(unittest.TestCase):
         feeds.validate_version("0.1.0", 1, 0, "stable")
         feeds.validate_version("1.0.0-rc.1", 10, 9, "stable")
 
+    def test_own_download_bases_enter_android_payload_and_mac_feed_before_signing(self):
+        for host in ("shiftvps.ru", "web-backup.shiftvps.ru"):
+            for decoration in ("", ":443"):
+                base = f"https://{host}{decoration}/downloads/"
+                outputs = self.build(download_base_url=base)
+                envelope = json.loads(outputs["android.json"])
+                payload = base64.b64decode(envelope["payload"])
+                signature = base64.b64decode(envelope["signature"])
+                self.rsa_key.public_key().verify(signature, payload, padding.PKCS1v15(), hashes.SHA256())
+                manifest = json.loads(payload)
+                inventory = json.loads(outputs["inventory.json"])
+                for key, entry in inventory["artifacts"].items():
+                    expected = f"https://{host}/downloads/{self.mapping[key].name}"
+                    self.assertEqual(entry["url"], expected)
+                    feeds.require_artifact_url(expected, "0.1.1", self.mapping[key].name, base)
+                    if key.startswith("android-"):
+                        self.assertEqual(manifest["artifacts"][key]["url"], expected)
+                    else:
+                        xml = outputs[f"{key}.xml"]
+                        self.assertEqual(ET.fromstring(xml).find("./channel/item/enclosure").attrib["url"], expected)
+                with self.assertRaises(InvalidSignature):
+                    self.rsa_key.public_key().verify(signature, payload.replace(host.encode(), b"evil.example"),
+                                                    padding.PKCS1v15(), hashes.SHA256())
+                content, _, footer = outputs["macos-arm64.xml"].rpartition(b"<!-- sparkle-signatures:\n")
+                fields = dict(line.split(": ", 1) for line in footer.decode().splitlines() if ": " in line)
+                self.assertEqual(int(fields["length"]), len(content))
+                signature = base64.b64decode(fields["edSignature"])
+                self.ed_key.public_key().verify(signature, content)
+                with self.assertRaises(InvalidSignature):
+                    self.ed_key.public_key().verify(signature, content.replace(host.encode(), b"evil.example"))
+
+    def test_download_base_rejects_foreign_hosts_credentials_and_path_confusion(self):
+        for base in ("http://shiftvps.ru/downloads", "https://shiftvps.ru:444/downloads",
+                     "https://shiftvps.ru.evil.example/downloads", "https://evilshiftvps.ru/downloads",
+                     "https://user:password@shiftvps.ru/downloads", "https://shiftvps.ru/downloads?x=1",
+                     "https://shiftvps.ru/downloads?", "https://shiftvps.ru/downloads#",
+                     "https://shiftvps.ru/downloads#fragment", "https://shiftvps.ru/other",
+                     "https://shiftvps.ru/downloads/../other", "https://shiftvps.ru/downloads.evil",
+                     "https://shiftvps.ru/downloads//", "https://shiftvps.ru/%64ownloads",
+                     "https://shiftvps.ru/downloads/%2e%2e", "https://shiftvps.ru./downloads",
+                     " https://shiftvps.ru/downloads", "https://shiftvps.ru/downloads\n",
+                     "https://github.com/dirtycrew1/shiftvps-client/releases/download"):
+            with self.subTest(base=base), self.assertRaisesRegex(ValueError, "Download base"):
+                self.build(download_base_url=base)
+
     def test_encrypted_test_keys_and_password_input_never_enter_outputs(self):
         passwords = {"update-ed25519": b"synthetic-ed-password", "update-rsa": b"synthetic-rsa-password"}
         paths = []
@@ -257,7 +302,7 @@ class UpdateFeedsTest(unittest.TestCase):
         arguments = ["build_update_feeds.py", "--version-name", "0.1.1", "--version-code", "2",
                      "--previous-version-code", "1", "--channel", "stable", "--ed25519-key", str(key_paths[0]),
                      "--rsa-key", str(key_paths[1]), "--passwords-stdin", "--output", str(self.root / "output"),
-                     "--require-all"]
+                     "--require-all", "--download-base-url", "https://shiftvps.ru/downloads"]
         for name, path in self.mapping.items():
             arguments.extend(["--artifact", f"{name}={path}"])
         stdin = io.TextIOWrapper(io.BytesIO(feeds.compact_json(passwords)), encoding="utf-8")
@@ -266,6 +311,10 @@ class UpdateFeedsTest(unittest.TestCase):
                 patch.object(sys, "stdin", stdin), redirect_stdout(stdout), redirect_stderr(stderr):
             self.assertEqual(feeds.main(), 0)
         self.assertTrue((self.root / "output/inventory.json").is_file())
+        envelope = json.loads((self.root / "output/android.json").read_bytes())
+        manifest = json.loads(base64.b64decode(envelope["payload"]))
+        self.assertTrue(all(entry["url"].startswith("https://shiftvps.ru/downloads/")
+                            for entry in manifest["artifacts"].values()))
         self.assertNotIn("synthetic-test-password", stdout.getvalue() + stderr.getvalue())
 
 

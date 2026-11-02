@@ -122,7 +122,7 @@ object RawUpdater : GroupUpdater() {
                 proxies.addAll(beans)
                 return proxies
             } catch (e: Exception) {
-                Logs.w(e)
+                Logs.w("WireGuard configuration parse failed")
             }
         }
 
@@ -133,7 +133,7 @@ object RawUpdater : GroupUpdater() {
                 if (element is JsonPrimitive) error("unexpected JSON primitive")
                 parseJSON(element).takeIf { it.isNotEmpty() }?.let { return it }
             } catch (e: Exception) {
-                Logs.w(e)
+                Logs.w("JSON configuration parse failed")
             }
         }
 
@@ -141,7 +141,7 @@ object RawUpdater : GroupUpdater() {
             try {
                 parseProxies(text.b64DecodeToString()).takeIf { it.isNotEmpty() }?.let { return it }
             } catch (e: Exception) {
-                Logs.w(e)
+                Logs.w("Base64 subscription parse failed")
             }
         }
 
@@ -150,7 +150,7 @@ object RawUpdater : GroupUpdater() {
         } catch (e: SubscriptionFoundException) {
             throw e
         } catch (e: Exception) {
-            Logs.w(e)
+            Logs.w("Subscription link parse failed")
         }
 
         return null
@@ -181,14 +181,14 @@ object RawUpdater : GroupUpdater() {
                         try {
                             add(outbound)
                         } catch (e: Exception) {
-                            Logs.w(e)
+                            Logs.w("JSON outbound parse failed")
                         }
                     }
                     endpoints?.forEach { endpoint ->
                         try {
                             add(endpoint)
                         } catch (e: Exception) {
-                            Logs.w(e)
+                            Logs.w("JSON endpoint parse failed")
                         }
                     }
                 }

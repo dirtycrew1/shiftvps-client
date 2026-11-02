@@ -103,13 +103,27 @@ The producer creates:
   never local paths, private key contents, or passwords. The inventory is a review
   record; clients authenticate their own feeds/artifacts rather than this file.
 
-All artifact URLs are fixed to:
+By default, artifact URLs are fixed to:
 `https://github.com/dirtycrew1/shiftvps-client/releases/download/vVERSION/FILENAME`.
-The producer rejects arbitrary origins, credentials, ports, queries, fragments,
-path traversal, unsafe filenames, and mismatched release versions.
+For artifacts already hosted on our download service, add exactly one of:
+
+```text
+--download-base-url https://shiftvps.ru/downloads
+--download-base-url https://web-backup.shiftvps.ru/downloads
+```
+
+The selected own base produces `BASE/FILENAME` for every mapped artifact. An optional
+trailing slash and explicit HTTPS port `443` are accepted and normalized. Other
+hosts or paths, credentials, non-HTTPS URLs, other ports, queries (including an empty
+query), fragments, encoded paths, and traversal are rejected. These hosts match the
+native Android download allowlist. Filenames must still be safe release-asset names.
+The producer inserts the final URLs before signing the Android payload and Mac
+appcasts; never rewrite an already signed feed to change its download host.
 
 Before publishing, compare the inventory against the exact built files. Upload
-those unchanged assets to the matching `vVERSION` GitHub release first. Only after
+those unchanged assets to the matching `vVERSION` GitHub release or the explicitly
+selected own download directory first. Own-host filenames must include the release
+version to keep releases distinct; do not replace older assets in place. Only after
 all asset URLs work, publish the generated feed files together in one commit on
 the repository's `updates` branch. Preserve older architecture feeds when making
 an explicitly partial release; do not replace an unbuilt target with another

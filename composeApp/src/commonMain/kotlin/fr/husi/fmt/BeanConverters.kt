@@ -59,7 +59,7 @@ class BeanConverters {
                 bean.deserializeFromBuffer(BinaryInput(bytes))
             } catch (e: BinaryFormatException) {
                 // A payload written by an older husi version simply ends early; keep what it held.
-                Logs.w(e)
+                Logs.w("Stored profile decoding stopped early")
             }
             bean.initializeDefaultValues()
             return bean

@@ -103,7 +103,7 @@ abstract class GroupUpdater {
                     if (results.isEmpty()) error("empty response")
                     this@GroupUpdater.rewriteAddress(profile, results, networkStrategy)
                 } catch (e: Exception) {
-                    Logs.d("Lookup ${profile.serverAddress}", e)
+                    Logs.d("Profile address lookup failed")
                 }
             }
         }
@@ -171,7 +171,7 @@ abstract class GroupUpdater {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Logs.w(e)
+                Logs.w("Profile address resolution failed")
                 warnings += GroupUpdateWarning(
                     proxyGroup.displayName(),
                     resolveRepository().getString(Res.string.force_resolve_error, e.readableMessage),
@@ -232,7 +232,7 @@ abstract class GroupUpdater {
                         toUpdate.add(entity)
                         updated[entity.displayName()] = name
 
-                        Logs.d("Updated profile: $name")
+                        Logs.d("Updated profile")
                     }
 
                     entity.userOrder != userOrder -> {
@@ -240,11 +240,11 @@ abstract class GroupUpdater {
                         toUpdate.add(entity)
                         entity.userOrder = userOrder
 
-                        Logs.d("Reordered profile: $name")
+                        Logs.d("Reordered profile")
                     }
 
                     else -> {
-                        Logs.d("Ignored profile: $name")
+                        Logs.d("Ignored profile")
                     }
                 }
             } else {
@@ -256,7 +256,7 @@ abstract class GroupUpdater {
                         putBean(bean)
                     },
                 )
-                Logs.d("Inserted profile: $name")
+                Logs.d("Inserted profile")
             }
             userOrder++
         }
@@ -351,7 +351,7 @@ abstract class GroupUpdater {
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Throwable) {
-                    Logs.w(e)
+                    Logs.w("Subscription update failed")
                     GroupUpdateResult.Failure(
                         group = proxyGroup,
                         message = e.readableMessage,
