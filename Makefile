@@ -75,6 +75,7 @@ desktop_package_linux_all:
 	done
 
 desktop_package_macos:
+	/bin/bash ./release/macos/test-package-metadata.sh
 	@if [ "$(HOST_OS)" != "Darwin" ] && [ -z "$(DESKTOP_TARGET)" ]; then \
 		echo "desktop_package_macos on non-macOS hosts requires DESKTOP_TARGET, e.g. make desktop_package_macos DESKTOP_TARGET=darwin/arm64"; \
 		exit 1; \

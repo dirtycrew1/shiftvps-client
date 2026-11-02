@@ -304,7 +304,7 @@ require_tools() {
         fi
     done
 
-    if [[ "${#missing[@]}" -gt 0 ]]; then
+    if [[ -n "${missing[*]-}" ]]; then
         error "Missing required tools: ${missing[*]}"
         exit 2
     fi
@@ -354,7 +354,8 @@ resolve_input_jar() {
     # Everything but the wildcard stays quoted, so only the glob expands.
     matches=("$JAR_DIR_DEFAULT/${PACKAGE_NAME}-darwin-${JAR_ARCH}-"*.jar)
     shopt -u nullglob
-    for candidate in "${matches[@]}"; do
+    for candidate in "${matches[@]-}"; do
+        [[ -n "$candidate" ]] || continue
         if [[ -z "$latest" || "$candidate" -nt "$latest" ]]; then
             latest="$candidate"
         fi

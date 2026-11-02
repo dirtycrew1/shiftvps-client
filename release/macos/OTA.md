@@ -1,5 +1,10 @@
 # macOS updates
 
+Both Apple Silicon and Intel packages require macOS 13.0 or newer, matching the
+bundled Cronet native library. The application, updater helper, Go deployment target,
+and signed appcast declare that same minimum. Older deployment-target overrides
+are rejected rather than producing a package that advertises unsupported systems.
+
 The packaged application runs the official Sparkle CLI in the background after
 startup and every six hours. It always supplies `--defer-install`: Sparkle downloads
 and verifies the release, then waits for ShiftVPS to quit naturally. It never forces

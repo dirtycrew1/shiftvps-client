@@ -6,7 +6,8 @@ network policy and subscriptions; users do not need to edit proxy configurations
 
 This branch is under development. An installable build, real-device connectivity,
 background diagnostics and platform signing must be verified before a public release.
-macOS currently targets Apple Silicon; Intel support is not claimed.
+macOS packages target macOS 13.0+ on Apple Silicon and Intel; native installation
+and update verification are still required before claiming a successful release.
 
 The account API contract is maintained with the ShiftVPS portal. Authentication uses
 browser approval, PKCE and per-device revocable sessions. Tokens use Android Keystore,
@@ -365,7 +366,7 @@ You can preflight required tooling without producing packages:
 ./release/linux/package.sh --check-tools --formats deb,rpm,pacman
 ```
 
-Build self-contained macOS `.dmg` packages for Apple Silicon or Intel:
+Build self-contained macOS `.dmg` packages for Apple Silicon or Intel, requiring macOS 13.0+:
 
 ```shell
 make desktop_package_macos

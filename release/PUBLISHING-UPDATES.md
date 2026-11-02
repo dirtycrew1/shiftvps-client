@@ -95,7 +95,8 @@ The producer creates:
   `sparkle:shortVersionString`. Each EXE has an Ed25519 enclosure signature over
   its raw bytes. WinSparkle does not authenticate the appcast with a feed signature.
 - `macos-ARCH.xml`: RSS appcast with the same version fields and raw-DMG Ed25519
-  signatures. The feed itself has Sparkle's Ed25519 footer over the exact preceding
+  signatures and `sparkle:minimumSystemVersion` set to `13.0` for both Apple Silicon
+  and Intel, matching the native libraries. The feed itself has Sparkle's Ed25519 footer over the exact preceding
   XML bytes. Never reformat a feed after generation. See [macOS OTA](macos/OTA.md).
 - `inventory.json`: SHA-256 and byte counts for artifacts and generated metadata,
   excluding the inventory itself. It contains public release URLs and filenames,

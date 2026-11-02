@@ -35,14 +35,17 @@ github_repository_slug() {
 
 desktop_url_scheme_mime_types() {
     local scheme
-    for scheme in "${DESKTOP_URL_SCHEMES[@]}"; do
+    # Bash 3.2 on macOS treats an empty array as unset under nounset.
+    for scheme in "${DESKTOP_URL_SCHEMES[@]-}"; do
+        [[ -n "$scheme" ]] || continue
         printf 'x-scheme-handler/%s;' "$scheme"
     done
 }
 
 desktop_url_scheme_entries_plist() {
     local scheme
-    for scheme in "${DESKTOP_URL_SCHEMES[@]}"; do
+    for scheme in "${DESKTOP_URL_SCHEMES[@]-}"; do
+        [[ -n "$scheme" ]] || continue
         printf '<string>%s</string>' "$scheme"
     done
 }

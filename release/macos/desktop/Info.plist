@@ -39,6 +39,8 @@
     <string>__HUSI_MACOS_BUNDLE_VERSION__</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
     <key>SUFeedURL</key>
     <string>__SHIFT_UPDATE_FEED__</string>
     <key>SUPublicEDKey</key>

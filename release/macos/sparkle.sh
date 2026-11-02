@@ -85,7 +85,7 @@ SOURCES
     mv "$frameworks_dir/LICENSE" "$helper_contents/Resources/Sparkle-LICENSE.txt"
     lipo -verify_arch "$native_arch" "$frameworks_dir/Sparkle.framework/Sparkle"
 
-    xcrun --sdk macosx clang -arch "$native_arch" -mmacosx-version-min=11.0 \
+    xcrun --sdk macosx clang -arch "$native_arch" -mmacosx-version-min=13.0 \
         -fobjc-arc -O2 -F "$frameworks_dir" -framework Cocoa -framework Sparkle \
         -Wl,-rpath,@executable_path/../Frameworks \
         "$source_dir/main.m" "$source_dir/SPUCommandLineDriver.m" \
@@ -106,7 +106,7 @@ SOURCES
     <key>CFBundleShortVersionString</key><string>2.10.1</string>
     <key>CFBundleVersion</key><string>2.10.1</string>
     <key>LSUIElement</key><true/>
-    <key>LSMinimumSystemVersion</key><string>11.0</string>
+    <key>LSMinimumSystemVersion</key><string>13.0</string>
 </dict></plist>
 PLIST
     plutil -lint "$helper_contents/Info.plist"

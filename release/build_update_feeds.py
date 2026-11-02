@@ -167,6 +167,8 @@ def appcast(artifact, version_name, version_code):
     ET.SubElement(item, "title").text = f"ShiftVPS {version_name}"
     ET.SubElement(item, f"{{{SPARKLE}}}version").text = str(version_code)
     ET.SubElement(item, f"{{{SPARKLE}}}shortVersionString").text = version_name
+    if artifact.key.startswith("macos-"):
+        ET.SubElement(item, f"{{{SPARKLE}}}minimumSystemVersion").text = "13.0"
     attributes = {
         "url": artifact.url, "length": str(artifact.size), "type": "application/octet-stream",
         f"{{{SPARKLE}}}edSignature": artifact.signature,

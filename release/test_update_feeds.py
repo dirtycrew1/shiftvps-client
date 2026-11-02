@@ -103,6 +103,7 @@ class UpdateFeedsTest(unittest.TestCase):
             tree = ET.fromstring(signed)
             item = tree.find("./channel/item")
             self.assertEqual(item.find(f"{{{feeds.SPARKLE}}}version").text, "2")
+            self.assertEqual(item.find(f"{{{feeds.SPARKLE}}}minimumSystemVersion").text, "13.0")
             enclosure = item.find("enclosure")
             archive_signature = base64.b64decode(enclosure.attrib[f"{{{feeds.SPARKLE}}}edSignature"])
             data = self.mapping[f"macos-{architecture}"].read_bytes()
@@ -117,6 +118,7 @@ class UpdateFeedsTest(unittest.TestCase):
             content = outputs[f"windows-{architecture}.xml"]
             self.assertNotIn(b"sparkle-signatures:", content)
             item = ET.fromstring(content).find("./channel/item")
+            self.assertIsNone(item.find(f"{{{feeds.SPARKLE}}}minimumSystemVersion"))
             enclosure = item.find("enclosure")
             self.assertEqual(enclosure.attrib[f"{{{feeds.SPARKLE}}}version"], "2")
             self.assertEqual(enclosure.attrib[f"{{{feeds.SPARKLE}}}shortVersionString"], "0.1.1")

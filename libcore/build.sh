@@ -123,12 +123,18 @@ apply_darwin_toolchain_env() {
     local desktop_target="$1"
     local host_platform
     local arch="${desktop_target#*/}"
-    local deployment_target
+    local deployment_target="${EXTERNAL_MACOSX_DEPLOYMENT_TARGET:-13.0}"
     local sdk_root
     local clang_arch
     local zig_target
     local clang_bin
     local clang_bin_cxx
+
+    # The bundled Darwin Cronet library requires macOS 13 on both CPU architectures.
+    if ! [[ "$deployment_target" =~ ^[0-9]+([.][0-9]+){0,2}$ ]] || [ "${deployment_target%%.*}" -lt 13 ]; then
+        echo "Darwin desktop builds require MACOSX_DEPLOYMENT_TARGET 13.0 or newer"
+        exit 1
+    fi
 
     host_platform="$(go env GOOS)"
 
@@ -183,12 +189,10 @@ apply_darwin_toolchain_env() {
         export CGO_CFLAGS="-isysroot $SDKROOT -isystem $sdk_include_root -F$framework_root -Wno-deprecated-declarations -fno-sanitize=undefined -fno-sanitize=integer"
         export CGO_CXXFLAGS="$CGO_CFLAGS"
         export CGO_LDFLAGS="-isysroot $SDKROOT -L$SDKROOT/usr/lib -F$framework_root $dead_strip_dylibs"
-        if [ -n "$EXTERNAL_MACOSX_DEPLOYMENT_TARGET" ]; then
-            export MACOSX_DEPLOYMENT_TARGET="$EXTERNAL_MACOSX_DEPLOYMENT_TARGET"
-            export CGO_CFLAGS="$CGO_CFLAGS -mmacos-version-min=$MACOSX_DEPLOYMENT_TARGET"
-            export CGO_CXXFLAGS="$CGO_CFLAGS"
-            export CGO_LDFLAGS="$CGO_LDFLAGS -mmacos-version-min=$MACOSX_DEPLOYMENT_TARGET"
-        fi
+        export MACOSX_DEPLOYMENT_TARGET="$deployment_target"
+        export CGO_CFLAGS="$CGO_CFLAGS -mmacos-version-min=$MACOSX_DEPLOYMENT_TARGET"
+        export CGO_CXXFLAGS="$CGO_CFLAGS"
+        export CGO_LDFLAGS="$CGO_LDFLAGS -mmacos-version-min=$MACOSX_DEPLOYMENT_TARGET"
         return
     fi
 
@@ -202,10 +206,6 @@ apply_darwin_toolchain_env() {
     if [ -z "$sdk_root" ] || [ ! -d "$sdk_root" ] || [ ! -x "$clang_bin" ] || [ ! -x "$clang_bin_cxx" ]; then
         echo "Unable to resolve the macOS SDK and clang toolchain with xcrun"
         exit 1
-    fi
-    deployment_target="$EXTERNAL_MACOSX_DEPLOYMENT_TARGET"
-    if [ -z "$deployment_target" ]; then
-        deployment_target="12.0"
     fi
     export SDKROOT="$sdk_root"
     export MACOSX_DEPLOYMENT_TARGET="$deployment_target"
