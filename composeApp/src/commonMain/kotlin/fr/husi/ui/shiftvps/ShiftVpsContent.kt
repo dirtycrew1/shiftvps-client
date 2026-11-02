@@ -246,12 +246,15 @@ private fun ServerContent(
                     Text(stringResource(Res.string.shiftvps_refresh), style = MaterialTheme.typography.labelMedium)
                 }
             }
-            Text(stringResource(when {
+            val notice = when {
                 state.refreshing -> Res.string.shiftvps_refreshing
                 state.probing -> Res.string.shiftvps_checking_servers
                 selectionLocked -> Res.string.shiftvps_selection_locked
-                else -> Res.string.shiftvps_sorted_by_latency
-            }), style = MaterialTheme.typography.bodySmall, color = ShiftVpsPalette.Muted)
+                else -> null
+            }
+            if (notice != null) {
+                Text(stringResource(notice), style = MaterialTheme.typography.bodySmall, color = ShiftVpsPalette.Muted)
+            }
             Spacer(Modifier.height(14.dp))
             if (state.refreshing || state.probing) {
                 LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp), color = ShiftVpsPalette.Accent,
