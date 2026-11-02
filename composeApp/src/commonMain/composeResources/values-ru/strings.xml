@@ -347,7 +347,7 @@
     <string name="action_switch">Сменить</string>
     <string name="nat_result_hint">Результаты проверки NAT</string>
     <string name="acquire_wake_lock">Использовать WakeLock</string>
-    <string name="app_name">Husi</string>
+    <string name="app_name">ShiftVPS</string>
     <string name="tuic_congestion_controller">Контроллер перегруженности</string>
     <string name="ech_config">Конфигурация ECH</string>
     <string name="http_upgrade_host">HTTPUpgrade - Хост</string>

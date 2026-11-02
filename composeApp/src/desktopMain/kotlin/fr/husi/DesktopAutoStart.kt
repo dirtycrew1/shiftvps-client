@@ -107,8 +107,8 @@ internal object DesktopAutoStart {
 
     private fun migrateLegacyAutoStartEntry() {
         val legacyEntry = when (PlatformInfo.platform) {
-            Platform.Linux -> DesktopPaths.linuxAutostartDir.resolve("fr.husi.desktop")
-            Platform.MacOs -> DesktopPaths.macLaunchAgentsDir.resolve("fr.husi.desktop.autostart.plist")
+            Platform.Linux -> DesktopPaths.linuxAutostartDir.resolve("ru.shiftvps.client.desktop")
+            Platform.MacOs -> DesktopPaths.macLaunchAgentsDir.resolve("ru.shiftvps.client.desktop.autostart.plist")
             // Windows reuses the same Run value name, so the old entry carries over as is.
             else -> return
         }

@@ -98,6 +98,7 @@ import fr.husi.ktx.toJsonMapKxs
 import fr.husi.logLevelString
 import fr.husi.platform.PlatformInfo
 import fr.husi.repository.resolveRepository
+import fr.husi.shiftvps.enforceManagedRouting
 import io.github.xchacha20_poly1305.kpuri.Url
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.JsonPrimitive
@@ -1773,6 +1774,7 @@ suspend fun buildConfig(
             optionsToMerge.blankAsNull()?.toJsonMapKxs()?.let { jsonMap ->
                 mergeJson(jsonMap, this)
             }
+            enforceManagedRouting(this)
         }
         ConfigBuildResult(
             kxs.encodeToString(optionsMap.toJsonElementKxs()),

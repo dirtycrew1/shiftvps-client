@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 
-private val DEFAULT_WINDOW_SIZE = DpSize(1200.dp, 800.dp)
+private val DEFAULT_WINDOW_SIZE = DpSize(460.dp, 760.dp)
 
 internal fun initialWindowSize(): DpSize {
     if (!DataStore.rememberWindowSize.getBlocking()) {

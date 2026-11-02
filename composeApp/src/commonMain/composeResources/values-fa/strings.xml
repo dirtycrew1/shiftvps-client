@@ -323,7 +323,7 @@
     <string name="create_shortcut">ایجاد میانبر</string>
     <string name="hop_interval">فاصله پرش پورت(ثانیه)</string>
     <string name="utls_fingerprint">اثر انگشت uTLS</string>
-    <string name="app_name">husi</string>
+    <string name="app_name">ShiftVPS</string>
     <string name="menu_dashboard">داشبورد </string>
     <string name="mux_sum">مالتی‌پلکسر (Mux) برای کاهش تأخیر دست‌تکانی (هندشیک) اتصال طراحی شده است، نه برای افزایش توان عملیاتی اتصال. استفاده از مالتی‌پلکسر برای تماشای ویدیو، دانلود یا تست سرعت معمولاً نتیجه معکوس می‌دهد. اگر سرور از آن پشتیبانی نکند، قادر به دسترسی به اینترنت نخواهید بود.</string>
     <string name="mux_type">پروتکل Mux</string>

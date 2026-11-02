@@ -169,7 +169,22 @@ fun Project.setupAppCommon() {
     val pwd = requireLocalProperty("ALIAS_PASS").orNull?.ifBlank { null }
         ?: providers.environmentVariable("ALIAS_PASS").orNull
 
-    val keystoreFile = rootProject.file("release.keystore")
+    val encodedKeystore = requireLocalProperty("KEYSTORE_BASE64").orNull?.ifBlank { null }
+        ?: providers.environmentVariable("KEYSTORE_BASE64").orNull
+    val externalKeystore = requireLocalProperty("KEYSTORE_FILE").orNull?.ifBlank { null }
+        ?: providers.environmentVariable("KEYSTORE_FILE").orNull
+    val keystoreFile = when {
+        externalKeystore != null -> rootProject.file(externalKeystore)
+        encodedKeystore != null -> rootProject.layout.buildDirectory.file("signing/shiftvps.keystore").get().asFile.also {
+            it.parentFile.mkdirs()
+            it.writeBytes(Base64.getDecoder().decode(encodedKeystore))
+            it.setReadable(false, false)
+            it.setReadable(true, true)
+            it.setWritable(false, false)
+            it.setWritable(true, true)
+        }
+        else -> rootProject.file("release.keystore")
+    }
 
     androidApp.apply {
         if (keystorePwd != null) {
@@ -216,7 +231,7 @@ fun Project.setupAppCommon() {
                 To build without signing, use a debug build instead: make apk_debug
                 """.trimIndent()
             )
-            exitProcess(0)
+            error("A ShiftVPS release requires its own signing key")
         }
         buildTypes {
             val key = signingConfigs.findByName("release")

@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	serviceName            = "husi-daemon"
-	serviceDisplayName     = "Husi Core Daemon"
-	serviceDescriptionText = "Privileged core daemon for Husi"
+	serviceName            = "shiftvps-daemon"
+	serviceDisplayName     = "ShiftVPS Core Daemon"
+	serviceDescriptionText = "Privileged network daemon for ShiftVPS"
 )
 
 func ServiceInstall(workingDir string) error {
@@ -44,10 +44,10 @@ func ServiceInstall(workingDir string) error {
 	if err != nil {
 		return err
 	}
-	installDir := filepath.Join(os.Getenv("ProgramFiles"), "husi")
-	if installDir == `\husi` || filepath.Base(installDir) != "husi" {
+	installDir := filepath.Join(os.Getenv("ProgramFiles"), "shiftvps")
+	if installDir == `\shiftvps` || filepath.Base(installDir) != "shiftvps" {
 		// ProgramFiles unset: fall back.
-		installDir = `C:\Program Files\husi`
+		installDir = `C:\Program Files\shiftvps`
 	}
 	installBin := filepath.Join(installDir, "husi-core.exe")
 	if err := prepareInstallDirectory(installBin); err != nil {
@@ -183,7 +183,7 @@ func ServiceUninstall(workingDir string, purge bool) error {
 		service.Close()
 	}
 
-	installBin := filepath.Join(os.Getenv("ProgramFiles"), "husi", "husi-core.exe")
+	installBin := filepath.Join(os.Getenv("ProgramFiles"), "shiftvps", "husi-core.exe")
 	_ = removeCore(installBin)
 	_ = os.Remove(filepath.Dir(installBin))
 

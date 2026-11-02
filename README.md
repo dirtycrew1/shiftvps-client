@@ -1,4 +1,35 @@
-# Husi (虎兕)
+# ShiftVPS client — development build
+
+Managed Android, Windows and macOS client for ShiftVPS. Sign in using the existing
+ShiftVPS account, select a server, and connect or disconnect. The service controls
+network policy and subscriptions; users do not need to edit proxy configurations.
+
+This branch is under development. An installable build, real-device connectivity,
+background diagnostics and platform signing must be verified before a public release.
+macOS currently targets Apple Silicon; Intel support is not claimed.
+
+The account API contract is maintained with the ShiftVPS portal. Authentication uses
+browser approval, PKCE and per-device revocable sessions. Tokens use Android Keystore,
+Windows DPAPI or macOS Keychain. The application never contains shared VPN accounts.
+Domains ending in `.ru` use a direct route and the device network's DNS resolver.
+
+For targeted native checks, use the upstream-documented command:
+
+```sh
+./gradlew :composeApp:desktopTest --tests 'fr.husi.shiftvps.*'
+```
+
+Android release signing requires an owner-provided `KEYSTORE_FILE` or `KEYSTORE_BASE64`
+and the corresponding passwords. Keys are not part of this repository.
+
+This client is derived from Husi v2.3.4 (commit
+`0822cc7b34ae3c57ee2840d553ca8cf31cf64867`) and retains its GPL-3.0-or-later
+license and attribution. ShiftVPS is an independent derivative and is not endorsed
+by the Husi authors. The upstream architecture and build reference follows.
+
+---
+
+# Upstream Husi (虎兕) reference
 
 Husi is a non-professional proxy-set-based multiplatform proxy tool set.
 

@@ -31,3 +31,10 @@ go.work*
 /external
 
 __pycache__/
+
+# Signing keys must never be committed to the client source.
+/release.keystore
+*.p12
+*.pfx
+*.jks
+*.keystore

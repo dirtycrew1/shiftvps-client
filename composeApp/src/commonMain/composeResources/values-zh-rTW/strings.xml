@@ -346,7 +346,7 @@
     <string name="backup_groups_and_configurations">分組和配置</string>
     <string name="backup_summary">如果路由規則不與配置一起備份，則自定義出站將丟失。</string>
     <string name="packet_encoding">包編碼</string>
-    <string name="app_name">虎兕</string>
+    <string name="app_name">ShiftVPS</string>
     <string name="is_outbound_only">設定的 JSON 是出站</string>
     <string name="show_group_in_notification">在通知中顯示組名</string>
     <string name="tls_camouflage_settings">TLS 偽裝設定</string>

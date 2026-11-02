@@ -9,9 +9,9 @@ import (
 
 func defaultWorkingDir() string {
 	if programData := os.Getenv("ProgramData"); programData != "" {
-		return filepath.Join(programData, "husi")
+		return filepath.Join(programData, "shiftvps")
 	}
-	return `C:\ProgramData\husi`
+	return `C:\ProgramData\shiftvps`
 }
 
 func defaultSocketPath() string {

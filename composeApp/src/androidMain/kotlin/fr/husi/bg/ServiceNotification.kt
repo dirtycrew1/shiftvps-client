@@ -19,14 +19,11 @@ import fr.husi.lib.R
 import fr.husi.repository.resolveAndroidRepository
 import fr.husi.repository.resolveRepository
 import fr.husi.resources.Res
-import fr.husi.resources.action_switch
 import fr.husi.resources.forward_success
-import fr.husi.resources.reset_connections
 import fr.husi.resources.speed
 import fr.husi.resources.speed_detail
 import fr.husi.resources.stop
 import fr.husi.resources.traffic
-import fr.husi.ui.SwitchActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -187,26 +184,6 @@ class ServiceNotification(
             ).setShowsUserInterface(false).build()
             it.addAction(closeAction)
 
-            val switchAction = NotificationCompat.Action.Builder(
-                0,
-                runBlocking { resolveRepository().getString(Res.string.action_switch) },
-                PendingIntent.getActivity(
-                    service, 0, Intent(service, SwitchActivity::class.java), flags,
-                ),
-            ).setShowsUserInterface(false).build()
-            it.addAction(switchAction)
-
-            val resetUpstreamAction = NotificationCompat.Action.Builder(
-                0,
-                runBlocking { resolveRepository().getString(Res.string.reset_connections) },
-                PendingIntent.getBroadcast(
-                    service,
-                    0,
-                    Intent(Action.RESET_UPSTREAM_CONNECTIONS).setPackage(service.packageName),
-                    flags,
-                ),
-            ).setShowsUserInterface(false).build()
-            it.addAction(resetUpstreamAction)
         }
     }
 

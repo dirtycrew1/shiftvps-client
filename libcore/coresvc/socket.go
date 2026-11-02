@@ -6,7 +6,7 @@ const Socket = "api.sock"
 
 // DaemonPipePath is the fixed Windows named-pipe endpoint for the privileged
 // daemon (must match daemonhost.DefaultDaemonPipePath).
-const DaemonPipePath = `\\.\pipe\ProtectedPrefix\Administrators\husi`
+const DaemonPipePath = `\\.\pipe\ProtectedPrefix\Administrators\shiftvps`
 
 func SocketPath(basePath string) string {
 	return filepath.Join(basePath, Socket)

@@ -334,7 +334,7 @@
     <string name="tuic_udp_relay_mode">Modo de retransmisión UDP</string>
     <string name="tuic_congestion_controller">Controlador de congestión</string>
     <string name="hop_interval">Intervalo de salto de puerto (segundos)</string>
-    <string name="app_name">husi</string>
+    <string name="app_name">ShiftVPS</string>
     <string name="menu_dashboard">Panel</string>
     <string name="is_outbound_only">El conjunto JSON es saliente</string>
     <string name="log_level">Nivel de registro</string>

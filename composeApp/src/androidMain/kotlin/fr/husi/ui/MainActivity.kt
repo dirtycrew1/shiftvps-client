@@ -2,12 +2,10 @@
 
 package fr.husi.ui
 
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.lifecycle.lifecycleScope
-import fr.husi.bg.DeepLinkDispatcher
 import fr.husi.bg.SagerConnection
 import fr.husi.compose.theme.AppTheme
 import fr.husi.database.DataStore
@@ -29,6 +27,7 @@ class MainActivity : ComposeActivity(), AndroidScopeComponent {
     private val serviceConnection = SagerConnection(listenForDeath = true)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        if (DataStore.nightTheme.getBlocking() != 1) DataStore.nightTheme.setBlocking(1)
         super.onCreate(savedInstanceState)
 
         serviceConnection.connect(applicationContext)
@@ -43,12 +42,6 @@ class MainActivity : ComposeActivity(), AndroidScopeComponent {
                 }
         }
 
-        val isFreshLaunch = savedInstanceState == null
-        if (isFreshLaunch) dispatchDeepLink(intent)
-        val initialProcessText = intent
-            .takeIf { isFreshLaunch && it.action == Intent.ACTION_PROCESS_TEXT }
-            ?.getStringExtra(Intent.EXTRA_PROCESS_TEXT)
-
         setContent {
             val permissionPlatform = rememberAndroidPermissionPlatform()
             UnboundKoinScope(scope) {
@@ -56,30 +49,11 @@ class MainActivity : ComposeActivity(), AndroidScopeComponent {
                     LocalPermissionPlatform provides permissionPlatform,
                 ) {
                     AppTheme {
-                        MainScreen(
-                            initialProcessText = initialProcessText,
-                        )
+                        MainScreen()
                     }
                 }
             }
         }
-    }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-
-        setIntent(intent)
-        dispatchDeepLink(intent)
-    }
-
-    private fun dispatchDeepLink(intent: Intent) {
-        TailscaleRouteIntent.routeOf(intent)?.let { route ->
-            PendingNavigation.request(route)
-            return
-        }
-        if (intent.action != Intent.ACTION_VIEW) return
-        val uri = intent.data ?: return
-        DeepLinkDispatcher.emit(uri.toString())
     }
 
     override fun onDestroy() {

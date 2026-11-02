@@ -2,43 +2,19 @@
 # directive instead of a shebang.
 # shellcheck shell=bash
 
-APP_NAME="Husi"
-APP_NAME_ZH_CN="虎兕"
-APP_NAME_ZH_TW="虎兕"
-APP_DESCRIPTION="Husi is a non-professional proxy-set-based multiplatform proxy tool set."
-APP_DESCRIPTION_ZH_CN="虎兕 是一个非专业的基于代理集的跨平台代理工具集。"
-APP_DESCRIPTION_ZH_TW="虎兕 是一個非專業的基於代理集的跨平台代理工具集。"
-APP_FULL_DESCRIPTION="Husi is a non-professional proxy-set-based multiplatform proxy tool set. With graphical config editor, network tools and proxy status observation."
-APP_FULL_DESCRIPTION_ZH_CN="虎兕 是一个非专业的基于代理集的跨平台代理工具集。有着图形化编辑配置、网络工具以及代理状态观测的功能。"
-APP_FULL_DESCRIPTION_ZH_TW="虎兕 是一個非專業的基於代理集的跨平台代理工具集。有著圖形化編輯配置、網路工具以及代理狀態觀測的功能。"
-APP_URL="https://github.com/xchacha20-poly1305/husi"
-MAINTAINER="Husi contributors"
+APP_NAME="ShiftVPS"
+APP_NAME_ZH_CN="ShiftVPS"
+APP_NAME_ZH_TW="ShiftVPS"
+APP_DESCRIPTION="ShiftVPS managed VPN client."
+APP_DESCRIPTION_ZH_CN="$APP_DESCRIPTION"
+APP_DESCRIPTION_ZH_TW="$APP_DESCRIPTION"
+APP_FULL_DESCRIPTION="Sign in to ShiftVPS, choose a server, and connect. Server profiles and network policy are managed by ShiftVPS."
+APP_FULL_DESCRIPTION_ZH_CN="$APP_FULL_DESCRIPTION"
+APP_FULL_DESCRIPTION_ZH_TW="$APP_FULL_DESCRIPTION"
+APP_URL="https://shiftvps.ru"
+MAINTAINER="ShiftVPS"
 DESKTOP_URL_TYPE_NAME="Import URL"
-DESKTOP_URL_SCHEMES=(
-    husi
-    sing-box
-    ss
-    socks
-    socks4
-    socks4a
-    sock5
-    vmess
-    vless
-    trojan
-    trojan-go
-    naive+https
-    naive+quic
-    hysteria
-    hysteria2
-    hy2
-    tuic
-    juicity
-    sq
-    shadowquic
-    mieru
-    anytls
-    tt
-)
+DESKTOP_URL_SCHEMES=()
 
 # "owner/repo" of the GitHub project APP_URL points at, empty for a fork that
 # publishes somewhere else. The single source of truth for the repository slug:

@@ -3,7 +3,7 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const package_name = b.option([]const u8, "package-name", "Package name") orelse "fr.husi";
+    const package_name = b.option([]const u8, "package-name", "Package name") orelse "ru.shiftvps.client";
 
     const options = b.addOptions();
     options.addOption([]const u8, "package_name", package_name);

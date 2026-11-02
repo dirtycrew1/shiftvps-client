@@ -68,7 +68,7 @@ internal class DesktopPathSet(
     val configHomeDir: File,
 ) {
     val dataDir: File by lazy {
-        configHomeDir.resolve("husi")
+        configHomeDir.resolve("shiftvps")
     }
 
     val linuxAutostartDir: File by lazy {

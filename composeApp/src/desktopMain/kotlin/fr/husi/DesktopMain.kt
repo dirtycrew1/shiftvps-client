@@ -22,7 +22,6 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.restrictTo
 import dev.nucleusframework.core.runtime.SingleInstanceManager
-import fr.husi.bg.DeepLinkDispatcher
 import fr.husi.bg.DesktopNotificationCenter
 import fr.husi.bg.DesktopTaskRegistry
 import fr.husi.bg.DesktopTaskScheduler
@@ -30,7 +29,6 @@ import fr.husi.bg.InstanceRestoreBus
 import fr.husi.bg.RouteAssetUpdater
 import fr.husi.bg.SubscriptionUpdater
 import fr.husi.bg.migrateCustomRouteAssets
-import fr.husi.cli.ApiCommand
 import fr.husi.cli.directory
 import fr.husi.compose.theme.AppTheme
 import fr.husi.database.DataStore
@@ -48,7 +46,6 @@ import fr.husi.resources.app_name
 import fr.husi.resources.ic_service_active
 import fr.husi.ui.AuthChallengeDialogs
 import fr.husi.ui.MainScreen
-import fr.husi.ui.tailscale.TailscaleSSHWindow
 import fr.husi.utils.CrashHandler
 import fr.husi.utils.installBundledRuleSets
 import kotlinx.coroutines.flow.first
@@ -67,7 +64,7 @@ import javax.swing.UIManager
 import kotlin.system.exitProcess
 import kotlin.time.Duration.Companion.seconds
 
-const val APP_NAME = "fr.husi"
+const val APP_NAME = "ru.shiftvps.client"
 
 fun main(args: Array<String>) {
     configureNucleusAppIdentity()
@@ -159,7 +156,6 @@ class DesktopMain(
     init {
         subcommands(
             OpenCommand(),
-            ApiCommand(),
         )
     }
 
@@ -189,6 +185,7 @@ class DesktopMain(
 
         registerMacOSOpenUriHandler()
         initDesktopRuntime(deepLinks)
+        if (DataStore.nightTheme.getBlocking() != 1) DataStore.nightTheme.setBlocking(1)
         uiScaleWait.logOutcome()
         runCatching {
             runBlocking {
@@ -197,9 +194,6 @@ class DesktopMain(
             }
         }.onFailure {
             Logs.e("reconfigure desktop tasks on startup", it)
-        }
-        for (link in deepLinks) {
-            DeepLinkDispatcher.emit(link)
         }
 
         application {
@@ -250,12 +244,6 @@ class DesktopMain(
             }
 
             DesktopResourceEnvironmentFix {
-                LaunchedEffect(Unit) {
-                    if (shouldAutoConnectOnLaunch()) {
-                        repository.startService()
-                    }
-                }
-
                 val appName = stringResource(Res.string.app_name)
                 val iconServiceActive = painterResource(Res.drawable.ic_service_active)
 
@@ -268,7 +256,6 @@ class DesktopMain(
                 }
 
                 AuthChallengeDialogs(onDismissed = {})
-                TailscaleSSHWindow()
 
                 Window(
                     onCloseRequest = leaveWindow,
@@ -283,13 +270,6 @@ class DesktopMain(
                 }
             }
         }
-    }
-
-    private fun shouldAutoConnectOnLaunch(): Boolean {
-        return launchedAtLogin
-                && DataStore.persistAcrossReboot.getBlocking()
-                && DataStore.selectedProxy.getBlocking() > 0L
-                && !DataStore.serviceState.started
     }
 
     private fun initDesktopRuntime(deepLinks: List<String>) {
@@ -524,7 +504,6 @@ internal const val RESTORE_PAYLOAD_TASK = "task"
 private fun writeRestorePayload(path: Path, restoreWindow: Boolean, deepLinks: List<String>) {
     val lines = buildList {
         add(if (restoreWindow) RESTORE_PAYLOAD_RESTORE else RESTORE_PAYLOAD_SILENT)
-        addAll(deepLinks)
     }
     Files.write(path, lines)
 }
@@ -545,9 +524,6 @@ private fun handleRestoreRequest(path: Path) {
         }
         return
     }
-    for (link in payload) {
-        DeepLinkDispatcher.emit(link)
-    }
     if (lines.firstOrNull() != RESTORE_PAYLOAD_SILENT) {
         InstanceRestoreBus.fire()
     }
@@ -558,8 +534,8 @@ private fun registerMacOSOpenUriHandler() {
     try {
         val desktop = Desktop.getDesktop()
         if (!desktop.isSupported(Desktop.Action.APP_OPEN_URI)) return
-        desktop.setOpenURIHandler { event ->
-            DeepLinkDispatcher.emit(event.uri.toString())
+        desktop.setOpenURIHandler {
+            InstanceRestoreBus.fire()
         }
     } catch (e: Exception) {
         Logs.w("register macOS open-uri handler", e)

@@ -1,0 +1,164 @@
+package fr.husi.shiftvps
+
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.put
+import java.net.HttpURLConnection
+import java.net.URI
+import java.io.ByteArrayOutputStream
+import java.security.MessageDigest
+import java.security.SecureRandom
+import java.util.Base64
+
+internal val clientJson = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = false }
+
+internal class ClientApiException(val code: String, val status: Int = 0) : Exception(code)
+
+internal data class ClientResponse(val status: Int, val body: String)
+
+internal interface ClientTransport {
+    suspend fun request(method: String, url: String, token: String?, body: String?): ClientResponse
+}
+
+internal class HttpsClientTransport : ClientTransport {
+    override suspend fun request(
+        method: String, url: String, token: String?, body: String?,
+    ): ClientResponse = withContext(Dispatchers.IO) {
+        requireTrustedUrl(url)
+        val connection = URI(url).toURL().openConnection() as HttpURLConnection
+        try {
+            connection.requestMethod = method
+            connection.connectTimeout = 10000
+            connection.readTimeout = 15000
+            connection.instanceFollowRedirects = false
+            connection.setRequestProperty("Accept", "application/json, text/plain")
+            connection.setRequestProperty("Cache-Control", "no-store")
+            connection.setRequestProperty("User-Agent", "ShiftVPS-Client/1")
+            if (token != null) connection.setRequestProperty("Authorization", "Bearer $token")
+            if (body != null) {
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json")
+                val bytes = body.toByteArray(Charsets.UTF_8)
+                connection.setFixedLengthStreamingMode(bytes.size)
+                connection.outputStream.use { it.write(bytes) }
+            }
+            val status = connection.responseCode
+            if (status in 300..399) throw ClientApiException("redirect_refused", status)
+            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+            val bytes = stream?.use { input ->
+                val output = ByteArrayOutputStream()
+                val buffer = ByteArray(8192)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    if (output.size() + count > MAX_RESPONSE_BYTES) throw ClientApiException("response_too_large")
+                    output.write(buffer, 0, count)
+                }
+                output.toByteArray()
+            } ?: byteArrayOf()
+            if (bytes.size > MAX_RESPONSE_BYTES) throw ClientApiException("response_too_large")
+            ClientResponse(status, bytes.toString(Charsets.UTF_8))
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    companion object {
+        private const val MAX_RESPONSE_BYTES = 1024 * 1024
+    }
+}
+
+internal fun requireTrustedUrl(url: String) {
+    val parsed = URI(url)
+    require(parsed.scheme == "https" && parsed.host in TRUSTED_CLIENT_HOSTS)
+    require(parsed.port == -1 || parsed.port == 443)
+    require(parsed.userInfo == null && parsed.fragment == null)
+}
+
+private val TRUSTED_CLIENT_HOSTS = setOf("shiftvps.ru", "web-backup.shiftvps.ru")
+
+internal fun createVerifier(): String {
+    val bytes = ByteArray(32).also { SecureRandom().nextBytes(it) }
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+}
+
+internal fun verifierChallenge(verifier: String): String = Base64.getUrlEncoder().withoutPadding()
+    .encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII)))
+
+internal class ShiftVpsApi(private val transport: ClientTransport = HttpsClientTransport()) {
+    private var origin = "https://shiftvps.ru"
+
+    suspend fun authorize(platform: String, name: String, challenge: String): DeviceAuthorization {
+        val response = request("POST", "/authorize", body = buildJsonObject {
+            put("platform", platform)
+            put("device_name", name)
+            put("code_challenge", challenge)
+        }.toString())
+        return clientJson.decodeFromString<DeviceAuthorization>(response).also {
+            requireTrustedUrl(it.verificationUri)
+            require(it.userCode.length in 4..32 && it.expiresIn in 60..900 && it.interval in 1..30)
+        }
+    }
+
+    suspend fun token(grantId: String, verifier: String): String {
+        val response = request("POST", "/token", body = buildJsonObject {
+            put("grant_id", grantId)
+            put("code_verifier", verifier)
+        }.toString())
+        return clientJson.decodeFromString<ClientToken>(response).accessToken.also {
+            require(it.matches(Regex("[A-Za-z0-9_-]{32,256}")))
+        }
+    }
+
+    suspend fun manifest(token: String, lastGoodPolicy: ShiftVpsPolicy = ShiftVpsPolicy()): ShiftVpsManifest {
+        val document = clientJson.parseToJsonElement(request("GET", "/manifest", token)) as JsonObject
+        val account = clientJson.decodeFromJsonElement<ShiftVpsAccount>(document.getValue("account"))
+        val policy = runCatching {
+            clientJson.decodeFromJsonElement<ShiftVpsPolicy>(document.getValue("policy")).validated()
+        }.getOrElse { lastGoodPolicy.validated() }
+        return ShiftVpsManifest(account, policy)
+    }
+
+    suspend fun feed(token: String): String = request("GET", "/feed", token)
+
+    suspend fun logout(token: String) { request("POST", "/logout", token, "{}") }
+
+    suspend fun metrics(token: String, events: List<ClientMetric>) {
+        val encoded = clientJson.encodeToJsonElement(ListSerializer(ClientMetric.serializer()), events.take(20))
+        request("POST", "/events", token, buildJsonObject { put("events", encoded) }.toString())
+    }
+
+    private suspend fun request(method: String, path: String, token: String? = null, body: String? = null): String {
+        val response = try {
+            transport.request(method, "$origin/api/client/v1$path", token, body)
+        } catch (error: Exception) {
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            // Creating an abandoned pending grant is harmless. Token exchanges and mutations are never replayed.
+            if (method != "GET" && path != "/authorize") throw error
+            val fallback = if (origin == "https://shiftvps.ru") "https://web-backup.shiftvps.ru" else "https://shiftvps.ru"
+            transport.request(method, "$fallback/api/client/v1$path", token, body).also { origin = fallback }
+        }
+        if (response.status !in 200..299) {
+            val returnedCode = runCatching {
+                clientJson.parseToJsonElement(response.body) as JsonObject
+            }.getOrNull()?.get("error")?.jsonPrimitive?.contentOrNull
+            throw ClientApiException(returnedCode?.takeIf { it in API_ERRORS } ?: "service_unavailable", response.status)
+        }
+        return response.body
+    }
+
+    companion object {
+        private val API_ERRORS = setOf(
+            "authorization_pending", "slow_down", "expired_token", "access_denied", "invalid_grant",
+            "invalid_token", "token_expired", "subscription_expired", "device_limit", "device_deleted", "unauthorized",
+        )
+    }
+}

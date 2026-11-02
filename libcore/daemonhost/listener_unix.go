@@ -10,7 +10,7 @@ import (
 	E "github.com/sagernet/sing/common/exceptions"
 )
 
-const DefaultDaemonSocketPath = "/var/run/husi/api.sock"
+const DefaultDaemonSocketPath = "/var/run/shiftvps/api.sock"
 
 func ListenDaemonEndpoint(socketPath string) (net.Listener, error) {
 	if socketPath == "" {

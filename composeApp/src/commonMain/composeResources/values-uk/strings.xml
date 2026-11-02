@@ -108,7 +108,7 @@
     <string name="nat_stun_server_hint">STUN сервер</string>
     <string name="share_subscription">Поділитися підпискою</string>
     <string name="insecure_warn">Попередження про небезпечні проксі</string>
-    <string name="app_name">husi</string>
+    <string name="app_name">ShiftVPS</string>
     <string name="action_open">Відкрити</string>
     <string name="update_all_subscription">Оновити усі підписки</string>
     <string name="proxy">Проксі</string>

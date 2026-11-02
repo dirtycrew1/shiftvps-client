@@ -885,7 +885,7 @@ internal class CoreHostController(
          * (`libcore/daemonhost.DefaultDaemonSocketPath` = `/var/run/husi/api.sock`).
          * [KurpcCoreClient] dials `basePath/api.sock`.
          */
-        private const val DAEMON_SOCKET_DIR_UNIX = "/var/run/husi"
+        private const val DAEMON_SOCKET_DIR_UNIX = "/var/run/shiftvps"
 
         /**
          * Windows protected named pipe
@@ -895,7 +895,7 @@ internal class CoreHostController(
          * the pipe prefix and dials it as-is (no `api.sock` join).
          */
         private const val DAEMON_PIPE_PATH_WINDOWS =
-            """\\.\pipe\ProtectedPrefix\Administrators\husi"""
+            """\\.\pipe\ProtectedPrefix\Administrators\shiftvps"""
 
         /**
          * Base path for [KurpcCoreClient].

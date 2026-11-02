@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shiftvps_open_app">Open ShiftVPS</string>
+    <string name="shiftvps_sign_in">Sign in</string>
+    <string name="shiftvps_sign_in_title">Sign in to ShiftVPS</string>
+    <string name="shiftvps_sign_in_description">Use your ShiftVPS account. Your servers will appear automatically.</string>
+    <string name="shiftvps_sign_in_waiting">Confirm sign-in in your browser</string>
+    <string name="shiftvps_sign_in_code">Make sure this code matches the one in your browser.</string>
+    <string name="shiftvps_cancel">Cancel</string>
+    <string name="shiftvps_logout">Sign out</string>
+    <string name="shiftvps_server_list">Servers</string>
+    <string name="shiftvps_sorted_by_latency">Fastest available first</string>
+    <string name="shiftvps_refresh">Refresh</string>
+    <string name="shiftvps_refreshing">Updating servers…</string>
+    <string name="shiftvps_checking_servers">Checking servers…</string>
+    <string name="shiftvps_check_servers">Check connection</string>
+    <string name="shiftvps_no_servers">No servers available</string>
+    <string name="shiftvps_no_servers_description">Refresh the list. If no servers appear, check your subscription in your account.</string>
+    <string name="shiftvps_select_server">Choose a server</string>
+    <string name="shiftvps_connected">Connected</string>
+    <string name="shiftvps_connecting">Connecting…</string>
+    <string name="shiftvps_disconnecting">Disconnecting…</string>
+    <string name="shiftvps_disconnected">Disconnected</string>
+    <string name="shiftvps_connect">Connect</string>
+    <string name="shiftvps_disconnect">Disconnect</string>
+    <string name="shiftvps_cancel_connection">Cancel connection</string>
+    <string name="shiftvps_ru_direct">.ru websites connect directly</string>
+    <string name="shiftvps_selection_locked">Disconnect to choose another server</string>
+    <string name="shiftvps_unavailable">Unavailable</string>
+    <string name="shiftvps_checking">Checking…</string>
+    <string name="shiftvps_latency_ms">%1$d ms</string>
+    <string name="shiftvps_updated_at">Updated %1$s</string>
+    <string name="shiftvps_retry">Try again</string>
+    <string name="shiftvps_dismiss">Dismiss</string>
+    <string name="shiftvps_browser_error">Could not open the browser. Try signing in again.</string>
+</resources>

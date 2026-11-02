@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	darwinInstallBin   = "/Library/Application Support/husi/bin/husi-core"
-	darwinPlistPath    = "/Library/LaunchDaemons/fr.husi.daemon.plist"
-	darwinServiceLabel = "fr.husi.daemon"
+	darwinInstallBin   = "/Library/Application Support/shiftvps/bin/husi-core"
+	darwinPlistPath    = "/Library/LaunchDaemons/ru.shiftvps.client.daemon.plist"
+	darwinServiceLabel = "ru.shiftvps.client.daemon"
 )
 
 func ServiceInstall(workingDir string) error {

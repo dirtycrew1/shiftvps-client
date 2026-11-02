@@ -281,7 +281,7 @@ SectionEnd
 ; the installed binary cannot delete itself while it is the running process. A
 ; declined UAC prompt leaves the service behind rather than aborting.
 Function un.uninstallCoreService
-    ${IfNot} ${FileExists} "$PROGRAMFILES64\husi\husi-core.exe"
+    ${IfNot} ${FileExists} "$PROGRAMFILES64\shiftvps\husi-core.exe"
         Return
     ${EndIf}
 

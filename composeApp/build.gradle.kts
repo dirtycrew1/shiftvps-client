@@ -476,8 +476,8 @@ compose.desktop {
             }
             packageName = desktopPackageName
             packageVersion = desktopVersion
-            description = "Husi desktop proxy integration tool"
-            vendor = "Husi contributors"
+            description = "ShiftVPS managed VPN client"
+            vendor = "ShiftVPS"
             copyright = "GPL-3.0-or-later"
             licenseFile.set(rootProject.layout.projectDirectory.file("LICENSE"))
         }
