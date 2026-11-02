@@ -83,7 +83,7 @@ SOURCES
     # Extract anew from the verified archive, preserving framework symlinks and modes.
     tar -xJf "$archive" -C "$frameworks_dir" ./Sparkle.framework ./LICENSE
     mv "$frameworks_dir/LICENSE" "$helper_contents/Resources/Sparkle-LICENSE.txt"
-    lipo -verify_arch "$native_arch" "$frameworks_dir/Sparkle.framework/Sparkle"
+    lipo "$frameworks_dir/Sparkle.framework/Sparkle" -verify_arch "$native_arch"
 
     xcrun --sdk macosx clang -arch "$native_arch" -mmacosx-version-min=13.0 \
         -fobjc-arc -O2 -F "$frameworks_dir" -framework Cocoa -framework Sparkle \
@@ -91,7 +91,7 @@ SOURCES
         "$source_dir/main.m" "$source_dir/SPUCommandLineDriver.m" \
         "$source_dir/SPUCommandLineUserDriver.m" \
         -o "$helper_contents/MacOS/ShiftVPSUpdater"
-    lipo -verify_arch "$native_arch" "$helper_contents/MacOS/ShiftVPSUpdater"
+    lipo "$helper_contents/MacOS/ShiftVPSUpdater" -verify_arch "$native_arch"
     /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' \
         "$frameworks_dir/Sparkle.framework/Resources/Info.plist" >/dev/null
 
