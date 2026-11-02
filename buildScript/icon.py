@@ -16,7 +16,7 @@ SOURCE_SMALL = ROOT / "art" / "icon-small.svg"
 CANVAS = 135.47
 ANDROID_LAYER_DP = 108
 
-BACKGROUND = "#191C15"
+BACKGROUND = "#0E1014"
 MONOCHROME_COLOR = "#000000"
 MONOCHROME_STROKE_SCALE = 1.6
 
@@ -118,11 +118,12 @@ def fail(message: str) -> None:
     raise SystemExit(1)
 
 
-def require_tool(name: str) -> str:
-    found = shutil.which(name)
-    if found is None:
-        fail(f"missing required tool: {name}")
-    return found
+def pillow_image():
+    try:
+        from PIL import Image
+    except ImportError:
+        fail("install build-only icon dependencies: python3 -m pip install -r buildScript/icon-requirements.txt")
+    return Image
 
 
 def run(*command: str) -> str:
@@ -165,18 +166,23 @@ def document_for(paths: list[dict[str, str]], body: str = "") -> str:
 
 
 def measure(paths: list[dict[str, str]]) -> Bounds:
-    magick = require_tool("magick")
-    rsvg = require_tool("rsvg-convert")
+    magick = shutil.which("magick")
     with tempfile.TemporaryDirectory() as workspace:
-        svg = Path(workspace) / "measure.svg"
         png = Path(workspace) / "measure.png"
-        svg.write_text(document_for(paths))
-        run(rsvg, "-w", str(MEASURE_RESOLUTION), "-h", str(MEASURE_RESOLUTION), str(svg), "-o", str(png))
-        geometry = run(magick, str(png), "-format", "%@", "info:").strip()
-    match = re.fullmatch(r"(\d+)x(\d+)\+(\d+)\+(\d+)", geometry)
-    if match is None:
-        fail(f"could not measure artwork bounds: {geometry}")
-    width, height, x, y = (int(value) for value in match.groups())
+        rasterize(document_for(paths), MEASURE_RESOLUTION, png)
+        if magick:
+            geometry = run(magick, str(png), "-format", "%@", "info:").strip()
+            match = re.fullmatch(r"(\d+)x(\d+)\+(\d+)\+(\d+)", geometry)
+            if match is None:
+                fail(f"could not measure artwork bounds: {geometry}")
+            width, height, x, y = (int(value) for value in match.groups())
+        else:
+            with pillow_image().open(png) as image:
+                bounds = image.getchannel("A").getbbox()
+            if bounds is None:
+                fail("source artwork is empty")
+            x, y, right, bottom = bounds
+            width, height = right - x, bottom - y
     unit = CANVAS / MEASURE_RESOLUTION
     return Bounds(x * unit, y * unit, width * unit, height * unit)
 
@@ -216,8 +222,15 @@ def compose(artwork: Artwork, plate: Plate, fraction: float) -> str:
 
 
 def rasterize(document: str, size: int, destination: Path) -> None:
-    rsvg = require_tool("rsvg-convert")
+    rsvg = shutil.which("rsvg-convert")
     destination.parent.mkdir(parents=True, exist_ok=True)
+    if rsvg is None:
+        try:
+            from resvg_py import svg_to_bytes
+        except ImportError:
+            fail("install build-only icon dependencies: python3 -m pip install -r buildScript/icon-requirements.txt")
+        destination.write_bytes(svg_to_bytes(svg_string=document, width=size, height=size, skip_system_fonts=True))
+        return
     with tempfile.TemporaryDirectory() as workspace:
         svg = Path(workspace) / "render.svg"
         svg.write_text(document)
@@ -243,12 +256,20 @@ def rasterize_plated(artworks: ArtworkSet, plate: Plate, size: int, destination:
 
 
 def flatten(source: Path, destination: Path) -> None:
-    magick = require_tool("magick")
-    run(magick, str(source), "-background", BACKGROUND, "-alpha", "remove", "-alpha", "off", str(destination))
+    magick = shutil.which("magick")
+    if magick:
+        run(magick, str(source), "-background", BACKGROUND, "-alpha", "remove", "-alpha", "off", str(destination))
+        return
+    image_module = pillow_image()
+    with image_module.open(source) as image:
+        background = image_module.new("RGBA", image.size, BACKGROUND)
+        background.alpha_composite(image.convert("RGBA"))
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        background.convert("RGB").save(destination, format="PNG")
 
 
-def android_vector(artwork: Artwork, monochrome: bool) -> str:
-    scale, x, y = mark_transform(artwork.bounds, Plate(), ANDROID_MARK_FRACTION)
+def android_vector(artwork: Artwork, monochrome: bool, fraction: float = ANDROID_MARK_FRACTION) -> str:
+    scale, x, y = mark_transform(artwork.bounds, Plate(), fraction)
     lines = [
         '<vector xmlns:android="http://schemas.android.com/apk/res/android"',
         f'    android:width="{ANDROID_LAYER_DP}dp"',
@@ -287,10 +308,12 @@ def write(destination: Path, content: str) -> None:
 
 
 def emit_android(artworks: ArtworkSet, workspace: Path) -> None:
-    magick = require_tool("magick")
+    magick = shutil.which("magick")
     resources = ROOT / "composeApp" / "src" / "androidMain" / "res"
     write(resources / "drawable" / "ic_launcher_foreground.xml", android_vector(artworks.large, monochrome=False))
     write(resources / "drawable" / "ic_launcher_monochrome.xml", android_vector(artworks.large, monochrome=True))
+    write(ROOT / "composeApp" / "src" / "commonMain" / "composeResources" / "drawable" / "ic_shiftvps.xml",
+          android_vector(artworks.small, monochrome=False, fraction=0.82))
     write(
         resources / "values" / "ic_launcher_background.xml",
         '<?xml version="1.0" encoding="utf-8"?>\n'
@@ -304,7 +327,11 @@ def emit_android(artworks: ArtworkSet, workspace: Path) -> None:
         rasterize_plated(artworks, LEGACY_PLATE, size, png)
         webp = resources / f"mipmap-{density}" / "ic_launcher.webp"
         webp.parent.mkdir(parents=True, exist_ok=True)
-        run(magick, str(png), "-define", "webp:lossless=true", str(webp))
+        if magick:
+            run(magick, str(png), "-define", "webp:lossless=true", str(webp))
+        else:
+            with pillow_image().open(png) as image:
+                image.save(webp, format="WEBP", lossless=True, method=6)
         print(f"icon: wrote {webp.relative_to(ROOT)}")
 
     store_png = workspace / "store.png"
@@ -318,14 +345,22 @@ def emit_android(artworks: ArtworkSet, workspace: Path) -> None:
 
 
 def emit_windows(artworks: ArtworkSet, workspace: Path) -> None:
-    magick = require_tool("magick")
+    magick = shutil.which("magick")
     rendered = []
     for size in WINDOWS_SIZES:
         target = workspace / f"windows-{size}.png"
         rasterize_plated(artworks, DESKTOP_PLATE, size, target)
         rendered.append(target)
     destination = ROOT / "launcher" / "icon.ico"
-    run(magick, *(str(png) for png in rendered), str(destination))
+    if magick:
+        run(magick, *(str(png) for png in rendered), str(destination))
+    else:
+        frames = []
+        for png in rendered:
+            with pillow_image().open(png) as image:
+                frames.append(image.convert("RGBA"))
+        frames[-1].save(destination, format="ICO", sizes=[(size, size) for size in WINDOWS_SIZES],
+                        append_images=frames[:-1])
     print(f"icon: wrote {destination.relative_to(ROOT)}")
 
 

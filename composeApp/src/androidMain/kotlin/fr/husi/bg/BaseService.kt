@@ -27,6 +27,12 @@ import fr.husi.plugin.PluginNotFoundException
 import fr.husi.repository.resolveAndroidRepository
 import fr.husi.repository.resolveRepository
 import fr.husi.resources.*
+import fr.husi.shiftvps.ShiftVpsServiceTelemetry
+import fr.husi.shiftvps.ShiftVpsExecutionLease
+import fr.husi.shiftvps.attachServiceMetricSession
+import fr.husi.shiftvps.bindServiceMetricSession
+import fr.husi.shiftvps.hasPendingOwnPackageInstall
+import fr.husi.shiftvps.serviceFailureCode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -93,6 +99,7 @@ class BaseService {
 
     class Data internal constructor(val service: Interface) {
         var state = ServiceState.Stopped
+        internal var executionLease: ShiftVpsExecutionLease? = null
         val backend = service.createBackendEngine()
         var proxy: ProxyInstance?
             get() = backend.proxy
@@ -149,12 +156,19 @@ class BaseService {
         val binder = Binder()
         var connectingJob: Job? = null
 
-        fun changeState(s: ServiceState, message: String? = null) {
+        fun changeState(s: ServiceState, message: String? = null, profile: ProxyEntity? = null, diagnosticCode: String? = null) {
             if (state == s && message == null) return
+            if (s == ServiceState.Stopped) {
+                val lease = executionLease
+                executionLease = null
+                lease?.close()
+            }
             state = s
             DataStore.serviceState = s
             BackendState.updateState(s, proxy?.displayProfileName)
             ServiceEventPublisher.publishState(s, proxy?.displayProfileName)
+            ShiftVpsServiceTelemetry.onState(s, profile ?: proxy?.profile,
+                diagnosticCode ?: if (message.isNullOrBlank()) null else "unknown")
         }
 
         fun resetNetwork() {
@@ -223,9 +237,9 @@ class BaseService {
         fun startRunner() {
             this as Context
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(Intent(this, javaClass))
+                startForegroundService(attachServiceMetricSession(Intent(this, javaClass)))
             } else {
-                startService(Intent(this, javaClass))
+                startService(attachServiceMetricSession(Intent(this, javaClass)))
             }
         }
 
@@ -244,6 +258,7 @@ class BaseService {
             restart: Boolean = false,
             msg: String? = null,
             afterStop: (() -> Unit)? = null,
+            diagnosticCode: String? = null,
         ) {
             ServiceRegistry.baseService = null
             ServiceRegistry.vpnService = null
@@ -271,7 +286,7 @@ class BaseService {
                 }
 
                 // change the state
-                data.changeState(ServiceState.Stopped, msg)
+                data.changeState(ServiceState.Stopped, msg, diagnosticCode = diagnosticCode)
                 if (!msg.isNullOrBlank()) {
                     ServiceEventPublisher.publishAlert(ServiceAlert.Common(msg))
                 }
@@ -309,10 +324,37 @@ class BaseService {
 
         @SuppressLint("UnspecifiedRegisterReceiverFlag")
         fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-            ServiceRegistry.baseService = this
-
             val data = data
             if (data.state != ServiceState.Stopped) return Service.START_NOT_STICKY
+            val lease = try {
+                ShiftVpsExecutionLease.tryAcquire(resolveAndroidRepository().noBackupFilesDir)?.let { acquired ->
+                    // A crashed UI loses its file lock, but its OS confirmation may still be open.
+                    try {
+                        if (hasPendingOwnPackageInstall(this as Context)) {
+                            acquired.close()
+                            null
+                        } else acquired
+                    } catch (e: Exception) {
+                        acquired.close()
+                        throw e
+                    }
+                }
+            } catch (_: Exception) {
+                Logs.e("Unable to reserve the VPN lifecycle")
+                null
+            }
+            if (lease == null) {
+                // Covers UI, queued, Always-on and system starts without disturbing a running VPN.
+                val current = BackendState.status.value
+                val state = if (current.state.started || current.state == ServiceState.Stopping) current.state
+                    else ServiceState.Stopped
+                ServiceEventPublisher.publishState(state, current.profileName)
+                if (ServiceRegistry.vpnService === this) ServiceRegistry.vpnService = null
+                (this as Service).stopSelf(startId)
+                return Service.START_NOT_STICKY
+            }
+            data.executionLease = lease
+            ServiceRegistry.baseService = this
             data.notification = createNotifier("")
             val profile = runBlocking { SagerDatabase.proxyDao.getById(DataStore.selectedProxy.getBlocking()) }
             this as Context
@@ -350,7 +392,8 @@ class BaseService {
                 data.closeReceiverRegistered = true
             }
 
-            data.changeState(ServiceState.Connecting)
+            bindServiceMetricSession(intent)
+            data.changeState(ServiceState.Connecting, profile = profile)
             data.connectingJob = runOnDefaultDispatcher {
                 try {
                     data.notification.onTitle(profile.displayNameForService())
@@ -370,13 +413,13 @@ class BaseService {
                 } catch (_: CancellationException) { // if the job was cancelled, it is canceller's responsibility to call stopRunner
                 } catch (e: UnknownHostException) {
                     Logs.e(e)
-                    stopRunner(false, resolveRepository().getString(Res.string.invalid_server))
+                    stopRunner(false, resolveRepository().getString(Res.string.invalid_server), diagnosticCode = "dns")
                 } catch (e: PluginNotFoundException) {
                     withContext(Dispatchers.Main) {
                         showToast(e.readableMessage)
                     }
                     Logs.w(e)
-                    stopRunner(false, e.readableMessage)
+                    stopRunner(false, e.readableMessage, diagnosticCode = "configuration")
                     ServiceEventPublisher.publishAlert(ServiceAlert.MissingPlugin(e.plugin))
                 } catch (exc: Throwable) {
                     if (exc.javaClass.name.endsWith("proxyerror")) {
@@ -388,6 +431,7 @@ class BaseService {
                     stopRunner(
                         false,
                         "${resolveRepository().getString(Res.string.service_failed)}: ${exc.readableMessage}",
+                        diagnosticCode = serviceFailureCode(exc),
                     )
                 } finally {
                     data.connectingJob = null

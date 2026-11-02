@@ -16,7 +16,7 @@
 
 ## Boundaries
 
-This client work must not switch the development computer's VPN, DNS, proxy or routes. The production website server `46.182.25.146` is excluded from the VPN topology. Shared staff test credentials must never be bundled into public clients. Existing subscriptions and billing remain authoritative.
+This client work must not switch the development computer's VPN, DNS, proxy or routes. Dedicated production website and mail hosts are excluded from the VPN topology. Shared staff test credentials must never be bundled into public clients. Existing subscriptions and billing remain authoritative.
 
 ## Primary surface
 

@@ -15,6 +15,7 @@ import fr.husi.database.SagerDatabase
 import fr.husi.database.SubscriptionBean
 import fr.husi.database.preference.string
 import fr.husi.database.preference.long
+import fr.husi.database.preference.int
 import fr.husi.fmt.buildConfig
 import fr.husi.fmt.http.HttpBean
 import fr.husi.fmt.hysteria.HysteriaBean
@@ -34,13 +35,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
@@ -50,6 +52,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.builtins.ListSerializer
 import org.koin.core.context.GlobalContext
 import java.io.File
 import java.net.SocketTimeoutException
@@ -61,6 +64,14 @@ import java.time.ZoneOffset
 import javax.net.ssl.SSLException
 
 class ShiftVpsController : AutoCloseable {
+    companion object {
+        private const val MANAGED_GROUP = "ShiftVPS managed"
+        private val activeController = java.util.concurrent.atomic.AtomicReference<ShiftVpsController?>()
+
+        /** Serializes a desktop installer with account verification and a queued connect action. */
+        internal fun reserveApplicationUpdate(): AutoCloseable? =
+            activeController.get()?.reserveUpdatePreparation()
+    }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val api = ShiftVpsApi()
     private val tokens = platformShiftVpsTokenStore()
@@ -76,26 +87,36 @@ class ShiftVpsController : AutoCloseable {
     private var account: ShiftVpsAccount? = null
     private var accountVerifiedAt = 0L
     private var userSelectedServer = false
+    private var selectedProfileId: Long? = null
+    private var connectionPending = false
     private var profiles = emptyList<ProxyEntity>()
-    private val metrics = ArrayDeque<ClientMetric>()
+    private var groups = emptyList<ShiftVpsServerGroup>()
+    private val measurements = mutableMapOf<Long, ServerCandidate>()
+    private val metrics = ClientMetricOutbox.decode("", System.currentTimeMillis())
+    private var metricOwner: String? = null
     private val repository = resolveRepository()
     private val core: CoreClient = GlobalContext.get().get()
     private val cachedPolicy = DataStore.configurationStore.string("shiftvps.policy")
     private val cachedAccount = DataStore.configurationStore.string("shiftvps.account")
     private val cachedVerificationTime = DataStore.configurationStore.long("shiftvps.account_verified_at")
+    private val cachedGroups = DataStore.configurationStore.string("shiftvps.server_groups")
 
     val state: StateFlow<ShiftVpsUiState>
         field = MutableStateFlow(ShiftVpsUiState())
 
-    val events: SharedFlow<ShiftVpsEvent>
-        field = MutableSharedFlow(extraBufferCapacity = 4)
+    private val eventQueue = Channel<ShiftVpsEvent>(Channel.BUFFERED)
+    val events: Flow<ShiftVpsEvent> = eventQueue.receiveAsFlow()
 
     init {
+        activeController.set(this)
         scope.launch {
             var previous = ServiceState.Idle
             BackendState.status.collect { status ->
                 state.update { it.copy(serviceState = status.state) }
+                if (status.state == ServiceState.Stopped) connectionPending = false
+                publishProfiles()
                 when {
+                    PlatformInfo.isAndroid -> Unit
                     status.state.connected && !previous.connected -> metric("connect_succeeded")
                     previous.connected && !status.state.connected -> metric("disconnected")
                 }
@@ -118,7 +139,7 @@ class ShiftVpsController : AutoCloseable {
         scope.launch {
             BackendState.alerts.collect {
                 state.update { it.copy(error = "Не удалось установить соединение. Попробуйте другой сервер.") }
-                metric("connect_failed", errorCode = "configuration")
+                if (!PlatformInfo.isAndroid) metric("connect_failed", errorCode = "configuration")
             }
         }
         scope.launch {
@@ -146,6 +167,10 @@ class ShiftVpsController : AutoCloseable {
                     account = runCatching { clientJson.decodeFromString<ShiftVpsAccount>(cachedAccount.get()) }.getOrNull()
                     accountVerifiedAt = cachedVerificationTime.get()
                     profiles = managedProfiles()
+                    groups = runCatching {
+                        clientJson.decodeFromString<List<ShiftVpsServerGroup>>(cachedGroups.get())
+                    }.getOrDefault(emptyList())
+                    selectedProfileId = DataStore.selectedProxy.get().takeIf { id -> profiles.any { it.id == id } }
                     state.update { it.copy(signedIn = true, accountName = account?.name.orEmpty(), loading = false) }
                     publishProfiles()
                     val hadCachedProfiles = profiles.isNotEmpty()
@@ -173,7 +198,7 @@ class ShiftVpsController : AutoCloseable {
                 val verifier = createVerifier()
                 val grant = api.authorize(platform(), platformName(), verifierChallenge(verifier))
                 state.update { it.copy(authCode = grant.userCode, loading = false) }
-                events.emit(ShiftVpsEvent.OpenBrowser(grant.verificationUri))
+                eventQueue.send(ShiftVpsEvent.OpenBrowser(grant.verificationUri))
                 val deadline = System.currentTimeMillis() + grant.expiresIn * 1000L
                 var interval = grant.interval
                 while (System.currentTimeMillis() < deadline) {
@@ -183,6 +208,7 @@ class ShiftVpsController : AutoCloseable {
                         tokenAccess.withLock {
                             if (sessionGeneration != generation) return@launch
                             tokens.save(token)
+                            metricOwner = tokenOwner(token)
                         }
                         state.update { it.copy(authCode = null, signedIn = true, loading = true) }
                         syncAndProbe(true)
@@ -213,10 +239,14 @@ class ShiftVpsController : AutoCloseable {
     }
 
     fun selectServer(id: Long) {
-        if (state.value.serviceState.started || profiles.none { it.id == id }) return
+        if (state.value.serviceState.started || connectionPending) return
+        val candidates = candidates()
+        val row = serverClusters(candidates, groups).firstOrNull { it.id == id } ?: return
+        val profileId = chooseProfile(row, candidates) ?: return
         userSelectedServer = true
+        selectedProfileId = profileId
         state.update { it.copy(selectedId = id) }
-        scope.launch { DataStore.selectedProxy.set(id) }
+        scope.launch { DataStore.selectedProxy.set(profileId) }
     }
 
     fun toggleConnection() {
@@ -226,6 +256,7 @@ class ShiftVpsController : AutoCloseable {
         }
         scope.launch {
             if (!connectionPreparation.tryLock()) return@launch
+            val generation = sessionGeneration
             try {
                 val token = currentToken() ?: throw ClientApiException("invalid_token", 401)
                 val cached = account
@@ -239,13 +270,25 @@ class ShiftVpsController : AutoCloseable {
                     cachedVerificationTime.set(accountVerifiedAt)
                     cachedAccount.set(clientJson.encodeToString(ShiftVpsAccount.serializer(), manifest.account))
                 }
-                val selected = state.value.selectedId ?: throw ClientApiException("no_server")
-                require(profiles.any { it.id == selected })
+                val candidates = candidates()
+                val row = serverClusters(candidates, groups).firstOrNull { it.id == state.value.selectedId }
+                    ?: throw ClientApiException("no_server")
+                val selected = chooseProfile(row, candidates) ?: throw ClientApiException("no_server")
                 applyManagedPolicy(policy)
-                require(state.value.signedIn && profiles.any { it.id == selected })
+                val selectedProfile = profiles.firstOrNull { it.id == selected } ?: throw ClientApiException("no_server")
+                if (!isManagedProfileCompatible(selectedProfile)) throw ClientApiException("unsupported_transport")
+                require(state.value.signedIn)
+                selectedProfileId = selected
+                connectionPending = true
                 DataStore.selectedProxy.set(selected)
+                DataStore.configurationStore.int("shiftvps.active_policy_version").set(policy.version)
+                if (generation != sessionGeneration || !state.value.signedIn) {
+                    connectionPending = false
+                    return@launch
+                }
                 state.update { it.copy(error = null, policyVersion = policy.version) }
-                events.emit(ShiftVpsEvent.LaunchVpn)
+                prepareServiceMetrics(tokenOwner(token), policy.version)
+                eventQueue.send(ShiftVpsEvent.LaunchVpn)
             } catch (error: Exception) {
                 handleFailure(error)
                 metric("connect_failed", errorCode = diagnosticCode(error))
@@ -254,30 +297,47 @@ class ShiftVpsController : AutoCloseable {
     }
 
     fun permissionDenied() {
+        connectionPending = false
         state.update { it.copy(error = "Разрешите VPN-подключение в системном окне, чтобы подключиться.") }
         metric("connect_failed", errorCode = "permission")
     }
 
     fun logout() {
         sessionGeneration++
+        metricOwner = null
+        metrics.clear()
+        prepareServiceMetrics(null, policy.version)
         loginJob?.cancel()
+        connectionPending = false
+        while (eventQueue.tryReceive().isSuccess) { /* Discard actions from the previous session. */ }
+        state.update { it.copy(signedIn = false, servers = emptyList(), selectedId = null, authCode = null, loading = true) }
+        repository.stopService()
         scope.launch {
-            repository.stopService()
-            operation.withLock {
-                tokenAccess.withLock {
-                    val token = tokens.load()
-                    if (token != null) runCatching { api.logout(token) }
+            try {
+                val token = tokenAccess.withLock {
+                    val previous = runCatching { tokens.load() }.getOrNull()
                     tokens.clear()
+                    previous
                 }
-                clearManagedProfiles()
-                cachedAccount.set("")
-                cachedPolicy.set("")
-                cachedVerificationTime.set(0L)
-                account = null
-                accountVerifiedAt = 0L
-                profiles = emptyList()
-                metrics.clear()
-                state.value = ShiftVpsUiState()
+                operation.withLock {
+                    clearManagedProfiles()
+                    cachedAccount.set("")
+                    cachedPolicy.set("")
+                    cachedVerificationTime.set(0L)
+                    cachedGroups.set("")
+                    account = null
+                    accountVerifiedAt = 0L
+                    profiles = emptyList()
+                    groups = emptyList()
+                    measurements.clear()
+                    selectedProfileId = null
+                    metrics.clear()
+                    state.value = ShiftVpsUiState()
+                }
+                if (token != null) runCatching { api.logout(token) }
+            } catch (error: Exception) {
+                handleFailure(error)
+                state.update { it.copy(loading = false) }
             }
         }
     }
@@ -303,23 +363,29 @@ class ShiftVpsController : AutoCloseable {
                 bean.customOutboundJson = ""
                 bean.customConfigJson = ""
             }
+            val compatible = parsed.filter { isManagedProfileCompatible(ProxyEntity().putBean(it)) }
+            if (compatible.isEmpty()) throw ClientApiException("unsupported_transport")
             if (generation != sessionGeneration) return
             val group = managedGroup()
-            val update = RawUpdater.tidyProxies(parsed, SubscriptionBean(), group, false, mutableListOf())
-            profiles = SagerDatabase.proxyDao.getByGroup(group.id).first()
+            val update = RawUpdater.tidyProxies(compatible, SubscriptionBean(), group, false, mutableListOf())
+            val previousSelectedProfile = selectedProfileId
+            val updatedProfiles = SagerDatabase.proxyDao.getByGroup(group.id).first().filter { isManagedProfileCompatible(it) }
+            if (generation != sessionGeneration) return
+            profiles = updatedProfiles
+            groups = manifest.serverGroups
             account = manifest.account
             accountVerifiedAt = System.currentTimeMillis()
             policy = manifest.policy.validated()
             cachedPolicy.set(clientJson.encodeToString(ShiftVpsPolicy.serializer(), policy))
             cachedAccount.set(clientJson.encodeToString(ShiftVpsAccount.serializer(), manifest.account))
             cachedVerificationTime.set(accountVerifiedAt)
+            cachedGroups.set(clientJson.encodeToString(ListSerializer(ShiftVpsServerGroup.serializer()), groups))
             state.update {
                 it.copy(signedIn = true, accountName = manifest.account.name, policyVersion = policy.version,
                     lastUpdatedMillis = System.currentTimeMillis(), error = null, loading = false)
             }
-            val previousSelected = state.value.selectedId
             publishProfiles()
-            if (previousSelected != null && profiles.none { it.id == previousSelected } && state.value.serviceState.started) {
+            if (previousSelectedProfile != null && profiles.none { it.id == previousSelectedProfile } && state.value.serviceState.started) {
                 repository.stopService()
             }
             metric("feed_updated")
@@ -343,7 +409,11 @@ class ShiftVpsController : AutoCloseable {
     private suspend fun probeProfiles() = coroutineScope {
         if (profiles.isEmpty()) return@coroutineScope
         applyManagedPolicy(policy)
-        state.update { it.copy(probing = true, servers = it.servers.map { server -> server.copy(checking = true) }) }
+        profiles.forEach { profile ->
+            measurements[profile.id] = candidate(profile).copy(checking = true)
+        }
+        state.update { it.copy(probing = true) }
+        publishProfiles()
         val gate = Semaphore(policy.latency.concurrency)
         try {
             profiles.toList().map { profile ->
@@ -361,45 +431,63 @@ class ShiftVpsController : AutoCloseable {
                             if (error is CancellationException) throw error
                             null
                         } finally { cache.forEach { it.delete() } }
-                        state.update { current ->
-                            current.copy(servers = rankServers(current.servers.map { server ->
-                                if (server.id == profile.id) server.copy(latencyMs = latency, checking = false, reachable = latency != null)
-                                else server
-                            }))
-                        }
+                        measurements[profile.id] = candidate(profile).copy(latencyMs = latency, checking = false, checked = true)
+                        publishProfiles()
                     }
                 }
             }.joinAll()
             // One bounded batch per survey; failure rows are most useful when a large list is probed.
-            state.value.servers.sortedBy { if (it.reachable == false) 0 else 1 }.take(20).forEach { server ->
-                profiles.firstOrNull { it.id == server.id }?.let { profile ->
-                    metric("latency_sample", profile, server.latencyMs, if (server.reachable == false) "unknown" else null)
+            candidates().sortedBy { if (it.checked && it.latencyMs == null) 0 else 1 }.take(20).forEach { candidate ->
+                profiles.firstOrNull { it.id == candidate.profileId }?.let { profile ->
+                    metric("latency_sample", profile, candidate.latencyMs, if (candidate.latencyMs == null) "unknown" else null)
                 }
             }
-            if (!userSelectedServer && !state.value.serviceState.started) {
+            if (!userSelectedServer && !state.value.serviceState.started && !connectionPending) {
                 state.value.servers.firstOrNull { it.reachable == true }?.let { best ->
                     state.update { it.copy(selectedId = best.id) }
-                    DataStore.selectedProxy.set(best.id)
+                    publishProfiles()
                 }
             }
         } finally {
-            state.update { it.copy(probing = false, servers = it.servers.map { server -> server.copy(checking = false) }) }
+            measurements.replaceAll { _, candidate -> candidate.copy(checking = false) }
+            state.update { it.copy(probing = false) }
+            publishProfiles()
         }
     }
 
     private fun publishProfiles() {
-        val previous = state.value.servers.associateBy { it.id }
-        val servers = rankServers(profiles.map { profile ->
-            previous[profile.id]?.copy(name = profile.displayName()) ?: ShiftVpsServer(profile.id, profile.displayName())
-        })
+        val candidates = candidates()
+        val clusters = serverClusters(candidates, groups)
+        val pinned = selectedProfileId.takeIf { state.value.serviceState.started || connectionPending }
+        val servers = rankServers(clusters.map { cluster -> clusterRow(cluster, candidates, pinned) })
         state.update { current ->
-            val selected = current.selectedId?.takeIf { id -> servers.any { it.id == id } }
+            val selected = pinned?.let { profileId -> clusters.firstOrNull { profileId in it.profileIds }?.id }
+                ?: current.selectedId?.takeIf { id -> servers.any { it.id == id } }
                 ?: servers.firstOrNull()?.id
+            if (pinned == null) {
+                selectedProfileId = clusters.firstOrNull { it.id == selected }?.let { chooseProfile(it, candidates) }
+            }
             current.copy(servers = servers, selectedId = selected)
         }
     }
 
-    private suspend fun currentToken() = tokenAccess.withLock { tokens.load() }
+    private fun candidate(profile: ProxyEntity): ServerCandidate {
+        val endpoint = diagnosticServerId(profile)
+        return measurements[profile.id]?.takeIf { it.endpointId == endpoint }
+            ?.copy(name = profile.displayName())
+            ?: ServerCandidate(profile.id, endpoint, profile.displayName())
+    }
+
+    private fun candidates(): List<ServerCandidate> = profiles.map(::candidate)
+
+    private suspend fun currentToken(): String? {
+        val generation = sessionGeneration
+        return tokenAccess.withLock {
+            tokens.load().also { token ->
+                if (generation == sessionGeneration) metricOwner = token?.let(::tokenOwner)
+            }
+        }
+    }
 
     private suspend fun managedGroup(): ProxyGroup = SagerDatabase.groupDao.allGroups().first()
         .firstOrNull { it.name == MANAGED_GROUP }
@@ -407,7 +495,7 @@ class ShiftVpsController : AutoCloseable {
 
     private suspend fun managedProfiles(): List<ProxyEntity> {
         val group = SagerDatabase.groupDao.allGroups().first().firstOrNull { it.name == MANAGED_GROUP } ?: return emptyList()
-        return SagerDatabase.proxyDao.getByGroup(group.id).first()
+        return SagerDatabase.proxyDao.getByGroup(group.id).first().filter { isManagedProfileCompatible(it) }
     }
 
     private suspend fun clearManagedProfiles() {
@@ -422,6 +510,14 @@ class ShiftVpsController : AutoCloseable {
             repository.stopService()
             clearManagedProfiles()
             profiles = emptyList()
+            groups = emptyList()
+            measurements.clear()
+            selectedProfileId = null
+            connectionPending = false
+            metrics.clear()
+            metricOwner = null
+            prepareServiceMetrics(null, policy.version)
+            while (eventQueue.tryReceive().isSuccess) { /* Revoked sessions cannot launch queued actions. */ }
             account = null
             accountVerifiedAt = 0L
             cachedVerificationTime.set(0L)
@@ -429,7 +525,11 @@ class ShiftVpsController : AutoCloseable {
             if (error.status == 401) tokenAccess.withLock { tokens.clear() }
             state.update { it.copy(servers = emptyList(), selectedId = null, signedIn = error.status != 401) }
         }
-        val message = when (diagnosticCode(error)) {
+        val message = if (error is ClientApiException && error.code == "unsupported_transport") {
+            "В подписке нет совместимых подключений. Обновите приложение или обратитесь в поддержку."
+        } else if (error is ClientApiException && error.code == "device_limit") {
+            "Достигнут лимит устройств. Удалите старое устройство в личном кабинете и повторите вход."
+        } else when (diagnosticCode(error)) {
             "subscription_expired" -> "Подписка закончилась. Продлите её в личном кабинете."
             "authentication" -> "Войдите в аккаунт ещё раз."
             "timeout" -> "Сервер не ответил вовремя. Попробуйте ещё раз."
@@ -439,29 +539,45 @@ class ShiftVpsController : AutoCloseable {
         state.update { it.copy(error = message) }
     }
 
-    private fun metric(event: String, profile: ProxyEntity? = profiles.firstOrNull { it.id == state.value.selectedId }, latency: Int? = null, errorCode: String? = null) {
+    private fun metric(event: String, profile: ProxyEntity? = profiles.firstOrNull { it.id == selectedProfileId }, latency: Int? = null, errorCode: String? = null) {
         if (!policy.telemetry.enabled || !state.value.signedIn) return
-        if (metrics.size >= 100) metrics.removeFirst()
-        metrics.addLast(ClientMetric(event, profile?.let(::diagnosticServerId), latency?.coerceIn(0, 60000), errorCode,
-            BuildConfig.VERSION_NAME.substringBefore('-').take(32), platform(), policy.version))
+        val owner = metricOwner ?: return
+        val now = System.currentTimeMillis()
+        metrics.append(owner, ClientMetric(event, profile?.let(::diagnosticServerId), latency?.coerceIn(0, 60000), errorCode,
+            BuildConfig.VERSION_NAME.substringBefore('-').take(32), platform(), policy.version, occurredAt = now / 1000L), now)
     }
 
     private suspend fun flushMetrics() {
         if (!policy.telemetry.enabled) { metrics.clear(); return }
         val token = currentToken() ?: return
-        val batch = metrics.take(20)
+        val owner = tokenOwner(token)
+        val batch = metrics.peek(owner, System.currentTimeMillis())
         if (batch.isEmpty()) return
         try {
-            api.metrics(token, batch)
-            repeat(batch.size.coerceAtMost(metrics.size)) { metrics.removeFirst() }
+            api.metrics(token, batch.map { it.metric }, metricBatchId(owner, batch))
+            metrics.acknowledge(owner, batch.map { it.id }.toSet())
         } catch (error: Exception) {
             if (error is CancellationException) throw error
+            if (error is ClientApiException && (error.status == 401 || error.code == "subscription_expired")) {
+                if (currentToken() == token) handleFailure(error)
+            }
         }
     }
 
-    override fun close() { scope.cancel() }
+    private fun reserveUpdatePreparation(): AutoCloseable? {
+        if (!connectionPreparation.tryLock()) return null
+        if (connectionPending || !canRestartApplication(BackendState.status.value.state)) {
+            connectionPreparation.unlock()
+            return null
+        }
+        return AutoCloseable { connectionPreparation.unlock() }
+    }
 
-    companion object { private const val MANAGED_GROUP = "ShiftVPS managed" }
+    override fun close() {
+        activeController.compareAndSet(this, null)
+        scope.cancel()
+    }
+
 }
 
 internal fun recentVerification(verifiedAt: Long, now: Long = System.currentTimeMillis()): Boolean =
@@ -501,7 +617,7 @@ private fun diagnosticCode(error: Exception): String = when (error) {
     else -> "network_unreachable"
 }
 
-private fun diagnosticServerId(profile: ProxyEntity): String {
+internal fun diagnosticServerId(profile: ProxyEntity): String {
     val bean = profile.requireBean()
     val protocol = when (bean) {
         is VLESSBean -> "vless"

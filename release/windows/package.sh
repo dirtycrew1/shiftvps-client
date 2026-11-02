@@ -21,6 +21,7 @@ NSIS_BIN=""
 JBR_JMODS_DIR=""
 RUNTIME_DIR=""
 VARIANT_SUFFIX=""
+WINSPARKLE_DIR=""
 
 log() {
     echo "[package] $*"
@@ -91,6 +92,7 @@ render_template() {
 
     "$PYTHON_BIN" - "$template_file" "$output_file" "$@" <<'PY'
 import pathlib
+import os
 import sys
 
 template_path = pathlib.Path(sys.argv[1])
@@ -102,9 +104,12 @@ if len(pairs) % 2 != 0:
 
 content = template_path.read_text(encoding="utf-8")
 for index in range(0, len(pairs), 2):
-    content = content.replace(pairs[index], pairs[index + 1])
+    value = pairs[index + 1]
+    if os.name == "nt" and pairs[index].endswith("_FILE__"):
+        value = os.path.normpath(value)
+    content = content.replace(pairs[index], value)
 
-output_path.write_text(content, encoding="utf-8")
+output_path.write_text(content, encoding="utf-8-sig")
 PY
 }
 
@@ -152,6 +157,7 @@ load_metadata() {
 
     PACKAGE_NAME="$(awk -F= '$1=="PACKAGE_NAME"{print $2; exit}' "$METADATA_FILE")"
     VERSION_NAME="$(awk -F= '$1=="VERSION_NAME"{print $2; exit}' "$METADATA_FILE")"
+    VERSION_CODE="$(awk -F= '$1=="VERSION_CODE"{print $2; exit}' "$METADATA_FILE" | tr -d '\r')"
 
     if [[ -z "$PACKAGE_NAME" || -z "$VERSION_NAME" ]]; then
         error "Failed to parse PACKAGE_NAME or VERSION_NAME from $METADATA_FILE"
@@ -159,6 +165,7 @@ load_metadata() {
     fi
 
     source_desktop_metadata
+    [[ "$VERSION_CODE" =~ ^[0-9]+$ ]] || { error "Invalid VERSION_CODE"; exit 1; }
     source_desktop_jre_modules
 }
 
@@ -551,10 +558,14 @@ output_filename() {
 # the uninstaller drops it the same way. RMDir /r stays scoped to this one
 # subdirectory of $INSTDIR.
 nsis_runtime_install_entries() {
+    local runtime_files="$RUNTIME_DIR/*"
+    if [[ "$HOST_OS" == "windows" ]]; then
+        runtime_files="$(cygpath -w "$RUNTIME_DIR")\\*"
+    fi
     cat <<EOF
-    SetOutPath "\$INSTDIR\\runtime"
-    File /r "$RUNTIME_DIR/*"
-    SetOutPath "\$INSTDIR"
+    SetOutPath "\$PayloadDir\\runtime"
+    File /r "$runtime_files"
+    SetOutPath "\$PayloadDir"
 EOF
 }
 
@@ -581,6 +592,8 @@ prepare_rootfs() {
     cp "$WINDOWS_JAVA_OPTS_FILE" "$root/desktop-java-opts.conf.template"
     cp "$ROOT_DIR/release/linux/desktop/desktop-app-args.conf" "$root/desktop-app-args.conf.template"
     cp "$ROOT_DIR/LICENSE" "$root/LICENSE"
+    cp "$WINSPARKLE_DIR/WinSparkle.dll" "$root/WinSparkle.dll"
+    cp -a "$WINSPARKLE_DIR/licenses" "$root/licenses"
     if [[ -n "$RUNTIME_DIR" ]]; then
         cp -a "$RUNTIME_DIR" "$root/runtime"
     fi
@@ -648,6 +661,7 @@ build_nsis() {
         "__HUSI_APP_NAME__" "$APP_NAME" \
         "__HUSI_APP_NAME_ZH_CN__" "$APP_NAME_ZH_CN" \
         "__HUSI_APP_VERSION__" "$VERSION_NAME" \
+        "__HUSI_APP_VERSION_CODE__" "$VERSION_CODE" \
         "__HUSI_APP_DESCRIPTION__" "$APP_DESCRIPTION" \
         "__HUSI_APP_URL__" "$APP_URL" \
         "__HUSI_MAINTAINER__" "$MAINTAINER" \
@@ -659,6 +673,10 @@ build_nsis() {
         "__HUSI_CORE_LIBRARY_NAME__" "$CORE_LIBRARY_NAME" \
         "__HUSI_CORE_LIBRARY_FILE__" "$INPUT_CORE_LIBRARY" \
         "__HUSI_JAR_FILE__" "$INPUT_JAR" \
+        "__HUSI_WINSPARKLE_FILE__" "$WINSPARKLE_DIR/WinSparkle.dll" \
+        "__HUSI_WINSPARKLE_COPYING_FILE__" "$WINSPARKLE_DIR/licenses/WinSparkle/COPYING" \
+        "__HUSI_WINSPARKLE_EXPAT_FILE__" "$WINSPARKLE_DIR/licenses/WinSparkle/COPYING.expat" \
+        "__HUSI_WINSPARKLE_AUTHORS_FILE__" "$WINSPARKLE_DIR/licenses/WinSparkle/AUTHORS" \
         "__HUSI_JAVA_OPTS_FILE__" "$WINDOWS_JAVA_OPTS_FILE" \
         "__HUSI_APP_ARGS_FILE__" "$ROOT_DIR/release/linux/desktop/desktop-app-args.conf" \
         "__HUSI_URL_SCHEME_REGISTRY__" "$url_scheme_registry" \
@@ -704,6 +722,7 @@ FORMATS="zip,nsis"
 CHECK_TOOLS=0
 PACKAGE_NAME=""
 VERSION_NAME=""
+VERSION_CODE=""
 APP_NAME=""
 APP_NAME_ZH_CN=""
 APP_DESCRIPTION=""
@@ -797,6 +816,9 @@ cleanup() {
     rm -rf "$work_dir"
 }
 trap cleanup EXIT
+
+WINSPARKLE_DIR="$work_dir/winsparkle"
+"$PYTHON_BIN" "$SCRIPT_DIR/fetch-winsparkle.py" --arch "$TARGET_ARCH" --output-dir "$WINSPARKLE_DIR"
 
 resolve_signing "$work_dir"
 sign_payloads "$work_dir"

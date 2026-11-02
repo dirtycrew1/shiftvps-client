@@ -48,3 +48,49 @@ what ties a build to this project, and that comparison is yours to make.
 
 See the Windows signing entry in [AGENTS.md](../../AGENTS.md). The private key lives outside this
 repository; `release/windows/codesign.sh` reads it from `WINDOWS_SIGNING_P12`.
+
+## In-app updates
+
+Installed ShiftVPS builds use [WinSparkle 0.9.4](https://github.com/vslavik/winsparkle/releases/tag/v0.9.4)
+through the existing JNA dependency. The native updater checks once per day and presents its own
+download/install dialog. Installation requires the user's approval. Connecting, connected, and
+stopping VPN sessions prevent the updater from closing the application; disconnect before installing.
+Portable archives and development runs do not update the registered installation.
+
+The application requires the compiled `UPDATE_ED25519_PUBLIC_KEY` and the HTTPS
+`UPDATE_WINDOWS_APPCAST_URL`. WinSparkle verifies every downloaded installer against the Ed25519 key
+before the application's installer callback can run. An absent or invalid signature stops the update.
+The appcast itself is HTTPS metadata; Ed25519 authenticates the installer bytes. Use `VERSION_CODE`
+as `sparkle:version` and `VERSION_NAME` as `sparkle:shortVersionString`. Publish the installer for the
+matching CPU architecture; the bundled-runtime installer is the normal OTA payload.
+
+Remote installer arguments are ignored. The verified EXE receives only `/S /UPDATE` and the current
+GUI's process ID. The installer waits up to 60 seconds for that process to exit, checks the registered
+installation directory, rejects older versions/builds, stages the new files and makes a backup under
+`.shiftvps-update-backup` in that directory. Profiles, account data and user configuration are outside
+the payload replacement list. Existing shortcuts are preserved.
+
+When a system service already exists, this explicit update mode may show a UAC prompt to replace it.
+Declining the prompt, a nonzero service exit code, or a file replacement error fails the update and
+attempts recovery of application files. A failed update retains its backup and shows the recovery
+location. This is not a transactional rollback of the privileged service, a profile database migration,
+or an interrupted installation; test those recovery cases in a disposable VM before publication.
+Ordinary unattended `/S` installation retains its existing behavior and does not request elevation.
+
+`fetch-winsparkle.py` downloads only the official release URL and checks both the GitHub release
+archive digest and architecture-specific DLL digest before extracting fixed entries. Packaging puts
+the original DLL beside the launcher and distributes its `COPYING`, `COPYING.expat`, and `AUTHORS`
+notices under `licenses/WinSparkle`. The application checks that DLL's pinned digest again and loads
+its absolute path. Do not re-sign or modify WinSparkle.dll without deliberately reviewing and updating
+the pins. An unrecognized or missing DLL disables the updater.
+
+Compiler-only release checks (never execute the generated installer on a development machine):
+
+```powershell
+python release/windows/test-updater.py --winsparkle-archive C:/cache/WinSparkle-0.9.4.zip --makensis C:/tools/nsis/makensis.exe
+```
+
+This checks archive/DLL pins, license notices, rejection of altered downloads and native compilation
+of both installer variants. Application safety tests are in `DesktopWindowsUpdaterTest` and run with
+`make test_gradle`. Before publishing, a disposable VM must also verify accepted/declined elevation,
+VPN-active deferral, process waiting, failed replacement recovery and successful version/readback.

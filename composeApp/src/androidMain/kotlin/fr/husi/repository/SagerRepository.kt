@@ -31,6 +31,7 @@ import fr.husi.resources.service_vpn_request
 import fr.husi.resources.taildrop_sending
 import fr.husi.tailscale.TaildropSendService
 import fr.husi.ui.MainActivity
+import fr.husi.shiftvps.attachServiceMetricSession
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.setResourceReaderAndroidContext
 import java.io.File
@@ -117,7 +118,7 @@ open class SagerRepository(
     override fun startService() {
         ContextCompat.startForegroundService(
             serviceContext,
-            Intent(context, SagerConnection.serviceClass),
+            attachServiceMetricSession(Intent(context, SagerConnection.serviceClass)),
         )
     }
 

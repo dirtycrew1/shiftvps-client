@@ -19,6 +19,9 @@ plugins {
 val packageNameProvider = requireMetadata("PACKAGE_NAME")
 val versionNameProvider = requireMetadata("VERSION_NAME")
 val versionCodeProvider = requireMetadata("VERSION_CODE")
+val updatePublicKeys = groovy.json.JsonSlurper().parseText(
+    providers.fileContents(rootProject.layout.projectDirectory.file("release/update-public-keys.json")).asText.get(),
+) as Map<*, *>
 enum class DesktopPlatform(
     val id: String,
     private val aliases: Set<String>,
@@ -167,12 +170,11 @@ data class DesktopTarget(
         /**
          * androidx sqlite-bundled ships no `libsqliteJni` for these, so Room cannot open the
          * database and the app dies on startup. Each one carries its own upstream issue.
-         * `darwin/amd64` is gone for good; `windows/arm64` comes back if upstream ever builds it.
+         * Intel macOS uses the compatible, official 2.6.2 driver below. Windows ARM64
+         * remains blocked until an official bundled SQLite binary is available.
          */
         private val missingBundledSqlite: Map<DesktopTarget, String> =
             mapOf(
-                DesktopTarget(platform = DesktopPlatform.Darwin, arch = DesktopArch.Amd64) to
-                    "https://issuetracker.google.com/issues/495864182",
                 DesktopTarget(platform = DesktopPlatform.Windows, arch = DesktopArch.Arm64) to
                     "https://issuetracker.google.com/issues/426464784",
             )
@@ -300,6 +302,10 @@ buildkonfig {
     defaultConfigs {
         buildConfigField(STRING, "VERSION_NAME", versionNameProvider.get(), const = true)
         buildConfigField(INT, "VERSION_CODE", versionCodeProvider.get(), const = true)
+        buildConfigField(STRING, "UPDATE_ANDROID_MANIFEST_URL", "https://raw.githubusercontent.com/dirtycrew1/shiftvps-client/updates/android.json", const = true)
+        buildConfigField(STRING, "UPDATE_RSA_PUBLIC_KEY", updatePublicKeys["update-rsa"] as String, const = true)
+        buildConfigField(STRING, "UPDATE_WINDOWS_APPCAST_URL", "https://raw.githubusercontent.com/dirtycrew1/shiftvps-client/updates/windows-${desktopTarget.arch.id}.xml", const = true)
+        buildConfigField(STRING, "UPDATE_ED25519_PUBLIC_KEY", updatePublicKeys["update-ed25519"] as String, const = true)
     }
 }
 
@@ -362,7 +368,6 @@ kotlin {
                 implementation(libs.kotlinx.collections.immutable)
                 implementation(libs.androidx.datastore.preferences)
                 implementation(libs.androidx.room.runtime)
-                implementation(libs.androidx.sqlite.bundled)
                 implementation(libs.kotlinx.serialization.json)
                 implementation(libs.kotlinx.serialization.protobuf)
                 implementation(libs.kotlinx.datetime)
@@ -388,6 +393,7 @@ kotlin {
         val androidMain = getByName("androidMain") {
             languageSettings.optIn("androidx.tv.material3.ExperimentalTvMaterial3Api")
             dependencies {
+                implementation(libs.androidx.sqlite.bundled)
                 implementation(
                     fileTree("libs") {
                         include("*.aar")
@@ -436,6 +442,13 @@ kotlin {
         val desktopMain = getByName("desktopMain") {
             kotlin.srcDir(generateDesktopPlatformInfo)
             dependencies {
+                implementation("androidx.sqlite:sqlite-bundled:${libs.versions.androidxSqlite.get()}") {
+                    if (desktopTarget.platform == DesktopPlatform.Darwin && desktopTarget.arch == DesktopArch.Amd64) {
+                        // Room 2.8.5's supported SQLite baseline includes the Intel Mac JNI.
+                        // Pin the complete official artifact, never mix native and JVM versions.
+                        version { strictly(libs.versions.androidxSqliteMacIntel.get()) }
+                    }
+                }
                 if (requestedDesktopTarget == null) {
                     implementation(compose.desktop.currentOs)
                 } else {

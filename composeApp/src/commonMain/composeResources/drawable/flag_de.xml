@@ -1,0 +1,15 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="28dp" android:height="21dp" android:viewportWidth="480" android:viewportHeight="360">
+  <group>
+    <group>
+      <group>
+        <path android:pathData="M 0 240 L 480 240 L 480 360 L 0 360 Z" android:fillType="nonZero" android:fillColor="#FFCC00" android:fillAlpha="1" />
+      </group>
+      <group>
+        <path android:pathData="M 0 0 L 480 0 L 480 120 L 0 120 Z" android:fillType="nonZero" android:fillColor="#000001" android:fillAlpha="1" />
+      </group>
+      <group>
+        <path android:pathData="M 0 120 L 480 120 L 480 240 L 0 240 Z" android:fillType="nonZero" android:fillColor="#FF0000" android:fillAlpha="1" />
+      </group>
+    </group>
+  </group>
+</vector>

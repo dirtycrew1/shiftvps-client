@@ -33,4 +33,18 @@
     <string name="shiftvps_retry">Повторить</string>
     <string name="shiftvps_dismiss">Скрыть</string>
     <string name="shiftvps_browser_error">Не удалось открыть браузер. Попробуйте войти ещё раз.</string>
+    <string name="shiftvps_browser_sign_in_hint">Откроем ваш личный кабинет в браузере.</string>
+    <string name="shiftvps_waiting_confirmation">Ожидаем подтверждение</string>
+    <string name="shiftvps_selected_server">Выбран</string>
+    <string name="shiftvps_latency_label">задержка</string>
+    <string name="shiftvps_auto_check">Проверяем при входе</string>
+    <string name="shiftvps_update_available">Доступно обновление</string>
+    <string name="shiftvps_update_downloading">Загружаем обновление</string>
+    <string name="shiftvps_update_installing">Устанавливаем обновление</string>
+    <string name="shiftvps_update_permission">Разрешите установку</string>
+    <string name="shiftvps_update_disconnect">Для обновления отключите VPN</string>
+    <string name="shiftvps_update_failed">Не удалось обновить</string>
+    <string name="shiftvps_update_version">Версия %1$s</string>
+    <string name="shiftvps_update_action">Установить</string>
+    <string name="shiftvps_update_continue">Продолжить</string>
 </resources>

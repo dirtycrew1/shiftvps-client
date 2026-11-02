@@ -1,0 +1,442 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-02T18:11:25.479Z",
+  "title": "Design System: ShiftVPS native interface",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Pale periwinkle",
+        "canonical": "#9DAAFF",
+        "tonalRamp": [
+          "oklch(15.000% 0.122816 276.436)",
+          "oklch(26.429% 0.122816 276.436)",
+          "oklch(37.857% 0.122816 276.436)",
+          "oklch(49.286% 0.122816 276.436)",
+          "oklch(60.714% 0.122816 276.436)",
+          "oklch(72.143% 0.122816 276.436)",
+          "oklch(83.571% 0.122816 276.436)",
+          "oklch(95.000% 0.122816 276.436)"
+        ]
+      },
+      "selected": {
+        "role": "primary",
+        "displayName": "Selected blue-black",
+        "canonical": "#1D2240",
+        "tonalRamp": [
+          "oklch(15.000% 0.056370 274.729)",
+          "oklch(26.429% 0.056370 274.729)",
+          "oklch(37.857% 0.056370 274.729)",
+          "oklch(49.286% 0.056370 274.729)",
+          "oklch(60.714% 0.056370 274.729)",
+          "oklch(72.143% 0.056370 274.729)",
+          "oklch(83.571% 0.056370 274.729)",
+          "oklch(95.000% 0.056370 274.729)"
+        ]
+      },
+      "button-top": {
+        "role": "primary",
+        "displayName": "Action blue upper",
+        "canonical": "#5365D8",
+        "tonalRamp": [
+          "oklch(15.000% 0.176005 272.641)",
+          "oklch(26.429% 0.176005 272.641)",
+          "oklch(37.857% 0.176005 272.641)",
+          "oklch(49.286% 0.176005 272.641)",
+          "oklch(60.714% 0.176005 272.641)",
+          "oklch(72.143% 0.176005 272.641)",
+          "oklch(83.571% 0.176005 272.641)",
+          "oklch(95.000% 0.176005 272.641)"
+        ]
+      },
+      "button-bottom": {
+        "role": "primary",
+        "displayName": "Action blue lower",
+        "canonical": "#4D5FD4",
+        "tonalRamp": [
+          "oklch(15.000% 0.179732 272.289)",
+          "oklch(26.429% 0.179732 272.289)",
+          "oklch(37.857% 0.179732 272.289)",
+          "oklch(49.286% 0.179732 272.289)",
+          "oklch(60.714% 0.179732 272.289)",
+          "oklch(72.143% 0.179732 272.289)",
+          "oklch(83.571% 0.179732 272.289)",
+          "oklch(95.000% 0.179732 272.289)"
+        ]
+      },
+      "button-text": {
+        "role": "neutral",
+        "displayName": "Action white",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "oklch(15.000% 0.000000 0.000)",
+          "oklch(26.429% 0.000000 0.000)",
+          "oklch(37.857% 0.000000 0.000)",
+          "oklch(49.286% 0.000000 0.000)",
+          "oklch(60.714% 0.000000 0.000)",
+          "oklch(72.143% 0.000000 0.000)",
+          "oklch(83.571% 0.000000 0.000)",
+          "oklch(95.000% 0.000000 0.000)"
+        ]
+      },
+      "online": {
+        "role": "neutral",
+        "displayName": "Connected mint",
+        "canonical": "#8ED9B4",
+        "tonalRamp": [
+          "oklch(15.000% 0.091570 162.085)",
+          "oklch(26.429% 0.091570 162.085)",
+          "oklch(37.857% 0.091570 162.085)",
+          "oklch(49.286% 0.091570 162.085)",
+          "oklch(60.714% 0.091570 162.085)",
+          "oklch(72.143% 0.091570 162.085)",
+          "oklch(83.571% 0.091570 162.085)",
+          "oklch(95.000% 0.091570 162.085)"
+        ]
+      },
+      "error": {
+        "role": "neutral",
+        "displayName": "Error rose",
+        "canonical": "#FFB4B9",
+        "tonalRamp": [
+          "oklch(15.000% 0.087726 14.698)",
+          "oklch(26.429% 0.087726 14.698)",
+          "oklch(37.857% 0.087726 14.698)",
+          "oklch(49.286% 0.087726 14.698)",
+          "oklch(60.714% 0.087726 14.698)",
+          "oklch(72.143% 0.087726 14.698)",
+          "oklch(83.571% 0.087726 14.698)",
+          "oklch(95.000% 0.087726 14.698)"
+        ]
+      },
+      "background": {
+        "role": "neutral",
+        "displayName": "Near-black ground",
+        "canonical": "#08080B",
+        "tonalRamp": [
+          "oklch(15.000% 0.006844 285.454)",
+          "oklch(26.429% 0.006844 285.454)",
+          "oklch(37.857% 0.006844 285.454)",
+          "oklch(49.286% 0.006844 285.454)",
+          "oklch(60.714% 0.006844 285.454)",
+          "oklch(72.143% 0.006844 285.454)",
+          "oklch(83.571% 0.006844 285.454)",
+          "oklch(95.000% 0.006844 285.454)"
+        ]
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Dark card",
+        "canonical": "#101115",
+        "tonalRamp": [
+          "oklch(15.000% 0.008374 274.409)",
+          "oklch(26.429% 0.008374 274.409)",
+          "oklch(37.857% 0.008374 274.409)",
+          "oklch(49.286% 0.008374 274.409)",
+          "oklch(60.714% 0.008374 274.409)",
+          "oklch(72.143% 0.008374 274.409)",
+          "oklch(83.571% 0.008374 274.409)",
+          "oklch(95.000% 0.008374 274.409)"
+        ]
+      },
+      "card-raised": {
+        "role": "neutral",
+        "displayName": "Raised dark surface",
+        "canonical": "#17181E",
+        "tonalRamp": [
+          "oklch(15.000% 0.011922 277.861)",
+          "oklch(26.429% 0.011922 277.861)",
+          "oklch(37.857% 0.011922 277.861)",
+          "oklch(49.286% 0.011922 277.861)",
+          "oklch(60.714% 0.011922 277.861)",
+          "oklch(72.143% 0.011922 277.861)",
+          "oklch(83.571% 0.011922 277.861)",
+          "oklch(95.000% 0.011922 277.861)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Quiet border",
+        "canonical": "#2B2C34",
+        "tonalRamp": [
+          "oklch(15.000% 0.014522 279.831)",
+          "oklch(26.429% 0.014522 279.831)",
+          "oklch(37.857% 0.014522 279.831)",
+          "oklch(49.286% 0.014522 279.831)",
+          "oklch(60.714% 0.014522 279.831)",
+          "oklch(72.143% 0.014522 279.831)",
+          "oklch(83.571% 0.014522 279.831)",
+          "oklch(95.000% 0.014522 279.831)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Primary pale text",
+        "canonical": "#EDEDF0",
+        "tonalRamp": [
+          "oklch(15.000% 0.004002 286.323)",
+          "oklch(26.429% 0.004002 286.323)",
+          "oklch(37.857% 0.004002 286.323)",
+          "oklch(49.286% 0.004002 286.323)",
+          "oklch(60.714% 0.004002 286.323)",
+          "oklch(72.143% 0.004002 286.323)",
+          "oklch(83.571% 0.004002 286.323)",
+          "oklch(95.000% 0.004002 286.323)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted reading text",
+        "canonical": "#A5A7B2",
+        "tonalRamp": [
+          "oklch(15.000% 0.015939 277.756)",
+          "oklch(26.429% 0.015939 277.756)",
+          "oklch(37.857% 0.015939 277.756)",
+          "oklch(49.286% 0.015939 277.756)",
+          "oklch(60.714% 0.015939 277.756)",
+          "oklch(72.143% 0.015939 277.756)",
+          "oklch(83.571% 0.015939 277.756)",
+          "oklch(95.000% 0.015939 277.756)"
+        ]
+      },
+      "outline": {
+        "role": "neutral",
+        "displayName": "Native control outline",
+        "canonical": "#747682",
+        "tonalRamp": [
+          "oklch(15.000% 0.018525 278.260)",
+          "oklch(26.429% 0.018525 278.260)",
+          "oklch(37.857% 0.018525 278.260)",
+          "oklch(49.286% 0.018525 278.260)",
+          "oklch(60.714% 0.018525 278.260)",
+          "oklch(72.143% 0.018525 278.260)",
+          "oklch(83.571% 0.018525 278.260)",
+          "oklch(95.000% 0.018525 278.260)"
+        ]
+      },
+      "update-text": {
+        "role": "neutral",
+        "displayName": "Update title pale",
+        "canonical": "#E4E7FF",
+        "tonalRamp": [
+          "oklch(15.000% 0.032596 280.079)",
+          "oklch(26.429% 0.032596 280.079)",
+          "oklch(37.857% 0.032596 280.079)",
+          "oklch(49.286% 0.032596 280.079)",
+          "oklch(60.714% 0.032596 280.079)",
+          "oklch(72.143% 0.032596 280.079)",
+          "oklch(83.571% 0.032596 280.079)",
+          "oklch(95.000% 0.032596 280.079)"
+        ]
+      },
+      "update-muted": {
+        "role": "neutral",
+        "displayName": "Update secondary pale",
+        "canonical": "#C5CCEF",
+        "tonalRamp": [
+          "oklch(15.000% 0.049285 276.388)",
+          "oklch(26.429% 0.049285 276.388)",
+          "oklch(37.857% 0.049285 276.388)",
+          "oklch(49.286% 0.049285 276.388)",
+          "oklch(60.714% 0.049285 276.388)",
+          "oklch(72.143% 0.049285 276.388)",
+          "oklch(83.571% 0.049285 276.388)",
+          "oklch(95.000% 0.049285 276.388)"
+        ]
+      },
+      "update-border": {
+        "role": "neutral",
+        "displayName": "Update blue border",
+        "canonical": "#3D477B",
+        "tonalRamp": [
+          "oklch(15.000% 0.087611 273.764)",
+          "oklch(26.429% 0.087611 273.764)",
+          "oklch(37.857% 0.087611 273.764)",
+          "oklch(49.286% 0.087611 273.764)",
+          "oklch(60.714% 0.087611 273.764)",
+          "oklch(72.143% 0.087611 273.764)",
+          "oklch(83.571% 0.087611 273.764)",
+          "oklch(95.000% 0.087611 273.764)"
+        ]
+      },
+      "error-container": {
+        "role": "neutral",
+        "displayName": "Error dark surface",
+        "canonical": "#29171E",
+        "tonalRamp": [
+          "oklch(15.000% 0.031252 354.877)",
+          "oklch(26.429% 0.031252 354.877)",
+          "oklch(37.857% 0.031252 354.877)",
+          "oklch(49.286% 0.031252 354.877)",
+          "oklch(60.714% 0.031252 354.877)",
+          "oklch(72.143% 0.031252 354.877)",
+          "oklch(83.571% 0.031252 354.877)",
+          "oklch(95.000% 0.031252 354.877)"
+        ]
+      },
+      "error-text": {
+        "role": "neutral",
+        "displayName": "Error pale text",
+        "canonical": "#FFDCE0",
+        "tonalRamp": [
+          "oklch(15.000% 0.039168 10.070)",
+          "oklch(26.429% 0.039168 10.070)",
+          "oklch(37.857% 0.039168 10.070)",
+          "oklch(49.286% 0.039168 10.070)",
+          "oklch(60.714% 0.039168 10.070)",
+          "oklch(72.143% 0.039168 10.070)",
+          "oklch(83.571% 0.039168 10.070)",
+          "oklch(95.000% 0.039168 10.070)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Sign-in display",
+        "purpose": "Bundled IBM Plex Sans SemiBold for sign-in titles."
+      },
+      "headline": {
+        "displayName": "Confirmation headline",
+        "purpose": "Plex role overridden with system monospace for the real confirmation code only."
+      },
+      "connection-state": {
+        "displayName": "Connection state",
+        "purpose": "Explicit written connection status."
+      },
+      "title": {
+        "displayName": "Section and brand title",
+        "purpose": "Brand header and server-list heading."
+      },
+      "server-name": {
+        "displayName": "Server name",
+        "purpose": "Country/server labels in native selectable rows."
+      },
+      "banner-title": {
+        "displayName": "Update title",
+        "purpose": "Compact inline update headings."
+      },
+      "body-large": {
+        "displayName": "Large supporting text",
+        "purpose": "Short sign-in explanation."
+      },
+      "body": {
+        "displayName": "Supporting text",
+        "purpose": "Selected country, errors and explanatory copy."
+      },
+      "body-small": {
+        "displayName": "Secondary supporting text",
+        "purpose": "Account, timestamps, version and latency explanation."
+      },
+      "button-label": {
+        "displayName": "Main action label",
+        "purpose": "Connect, disconnect and sign-in actions."
+      },
+      "label": {
+        "displayName": "Compact action label",
+        "purpose": "Refresh, check, update actions and latency values."
+      },
+      "label-small": {
+        "displayName": "Small label",
+        "purpose": "Small native label role retained in the shared Typography definition."
+      }
+    },
+    "shadows": [
+      {
+        "name": "primary-native-elevation",
+        "value": "10dp",
+        "purpose": "Existing Compose shadow: ambient Color.Transparent, spot Color(0x663E4FBD), enabled primary action only. Native elevation has no exact CSS box-shadow equivalent."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Native gradient action translated to a documentation specimen. Browser focus treatment is a panel affordance; native controls retain Material behavior.",
+      "html": "<div class=\"ds-specimen\"><span class=\"ds-specimen-label\">Пример интерфейса</span><button class=\"ds-primary\" type=\"button\">Подключиться</button></div>",
+      "css": ".ds-specimen{padding:20px;background:#08080B;color:#EDEDF0}.ds-specimen-label{display:block;margin-bottom:10px;color:#A5A7B2;font:12px/18px 'IBM Plex Sans',sans-serif}.ds-primary{font-family:'IBM Plex Sans',sans-serif;display:block;width:100%;min-height:56px;padding:14px 20px;border:0;border-radius:12px;background:linear-gradient(#5365D8,#4D5FD4);color:#FFFFFF;font-size:16px;font-weight:600;line-height:22px;text-align:center}.ds-primary:hover{cursor:pointer}.ds-primary:focus-visible{outline:2px solid #9DAAFF;outline-offset:3px}.ds-primary:active{outline-offset:1px}.ds-primary:disabled{background:#17181E;color:#A5A7B2;cursor:default}"
+    },
+    {
+      "name": "Secondary stop action",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Dark bordered disconnect action; it remains distinct from the blue start action.",
+      "html": "<div class=\"ds-specimen\"><span class=\"ds-specimen-label\">Пример интерфейса</span><button class=\"ds-secondary\" type=\"button\">Отключиться</button></div>",
+      "css": ".ds-specimen{padding:20px;background:#08080B;color:#EDEDF0}.ds-specimen-label{display:block;margin-bottom:10px;color:#A5A7B2;font:12px/18px 'IBM Plex Sans',sans-serif}.ds-secondary{font-family:'IBM Plex Sans',sans-serif;display:block;width:100%;min-height:56px;padding:14px 20px;border:1px solid #2B2C34;border-radius:12px;background:#17181E;color:#FFFFFF;font-size:16px;font-weight:600;line-height:22px;text-align:center}.ds-secondary:hover{cursor:pointer}.ds-secondary:focus-visible{outline:2px solid #9DAAFF;outline-offset:3px}.ds-secondary:active{outline-offset:1px}.ds-secondary:disabled{color:#A5A7B2;cursor:default}"
+    },
+    {
+      "name": "Compact text action",
+      "kind": "button",
+      "refersTo": "button-text",
+      "description": "Refresh and connection-check actions use the compact label role and a native minimum target.",
+      "html": "<div class=\"ds-specimen\"><span class=\"ds-specimen-label\">Пример интерфейса</span><button class=\"ds-text-action\" type=\"button\">Обновить</button></div>",
+      "css": ".ds-specimen{padding:20px;background:#08080B;color:#EDEDF0}.ds-specimen-label{display:block;margin-bottom:10px;color:#A5A7B2;font:12px/18px 'IBM Plex Sans',sans-serif}.ds-text-action{font-family:'IBM Plex Sans',sans-serif;min-height:48px;padding:0 8px;border:0;background:transparent;color:#9DAAFF;font-size:13px;font-weight:500;line-height:18px}.ds-text-action:hover{cursor:pointer}.ds-text-action:focus-visible{outline:2px solid #9DAAFF;outline-offset:2px}.ds-text-action:active{outline-offset:0}.ds-text-action:disabled{color:#A5A7B2;cursor:default}"
+    },
+    {
+      "name": "Connection card",
+      "kind": "card",
+      "refersTo": "connection-card",
+      "description": "Synthetic disconnected specimen showing the quiet card, power geometry, explicit state and country text. The primary action is documented separately.",
+      "html": "<div class=\"ds-specimen\"><span class=\"ds-specimen-label\">Пример интерфейса</span><section class=\"ds-connection\"><div class=\"ds-connection-row\"><div class=\"ds-power\"><svg aria-hidden=\"true\" viewBox=\"0 0 28 28\" width=\"28\" height=\"28\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.1\" stroke-linecap=\"round\"><path d=\"M20.745 6.509A10.08 10.08 0 1 1 7.255 6.509M14 1.68V12.88\"/></svg></div><div><strong class=\"ds-state\">Отключено</strong><div class=\"ds-country\"><svg aria-hidden=\"true\" viewBox=\"0 0 640 480\" width=\"28\" height=\"21\"><path fill=\"#005293\" d=\"M0 0h640v480H0z\"/><path fill=\"#fecb00\" d=\"M176 0v192H0v96h176v192h96V288h368v-96H272V0z\"/></svg><span>Швеция</span></div></div></div></section></div>",
+      "css": ".ds-specimen{padding:20px;background:#08080B;color:#EDEDF0}.ds-specimen-label{display:block;margin-bottom:10px;color:#A5A7B2;font:12px/18px 'IBM Plex Sans',sans-serif}.ds-connection{font-family:'IBM Plex Sans',sans-serif;padding:20px;border:1px solid #2B2C34;border-radius:20px;background:#101115;color:#EDEDF0}.ds-connection-row{display:flex;align-items:center;gap:16px}.ds-power{display:grid;place-items:center;width:56px;height:56px;border-radius:16px;background:#17181E;color:#A5A7B2;flex-shrink:0}.ds-state{display:block;font-size:24px;font-weight:600;line-height:30px;letter-spacing:-.3px}.ds-country{display:flex;align-items:center;gap:7px;margin-top:5px;color:#A5A7B2;font-size:14px;line-height:21px}.ds-country svg{width:20px;height:15px;border-radius:3px}"
+    },
+    {
+      "name": "Selected server row",
+      "kind": "custom",
+      "refersTo": "server-row-selected",
+      "description": "Synthetic row using fixture values; native selection includes a radio role, written label and tint. The Sweden paths come from the pinned flag-icons source.",
+      "html": "<div class=\"ds-specimen\"><span class=\"ds-specimen-label\">Пример интерфейса</span><label class=\"ds-server\"><input class=\"ds-radio\" type=\"radio\" name=\"ds-country-specimen\" checked><svg aria-hidden=\"true\" viewBox=\"0 0 640 480\" width=\"28\" height=\"21\"><path fill=\"#005293\" d=\"M0 0h640v480H0z\"/><path fill=\"#fecb00\" d=\"M176 0v192H0v96h176v192h96V288h368v-96H272V0z\"/></svg><span class=\"ds-server-name\">Швеция<small class=\"ds-server-selected\">Выбран</small></span><span class=\"ds-latency\">82 мс<small>задержка</small></span></label></div>",
+      "css": ".ds-specimen{padding:20px;background:#08080B;color:#EDEDF0}.ds-specimen-label{display:block;margin-bottom:10px;color:#A5A7B2;font:12px/18px 'IBM Plex Sans',sans-serif}.ds-server{font-family:'IBM Plex Sans',sans-serif;display:flex;align-items:center;gap:10px;min-height:76px;padding:12px 14px;border-radius:16px;background:#1D2240;color:#EDEDF0}.ds-radio{width:20px;height:20px;margin:0 2px 0 0;accent-color:#9DAAFF;flex-shrink:0}.ds-server svg{border-radius:3px;flex-shrink:0}.ds-server-name{flex:1;font-size:17px;font-weight:600;line-height:24px}.ds-server-selected{display:block;margin-top:1px;color:#9DAAFF;font-size:12px;font-weight:400;line-height:18px}.ds-latency{text-align:right;font-size:13px;font-weight:500;line-height:18px}.ds-latency small{display:block;margin-top:2px;color:#A5A7B2;font-size:12px;font-weight:400;line-height:18px}.ds-server:hover{cursor:pointer}.ds-server:focus-within{outline:2px solid #9DAAFF;outline-offset:2px}.ds-radio:focus-visible{outline:2px solid #9DAAFF;outline-offset:2px}"
+    },
+    {
+      "name": "Inline update banner",
+      "kind": "custom",
+      "refersTo": "update-banner",
+      "description": "Synthetic available-update specimen. The banner participates in scrolling content and is not an overlay or installer.",
+      "html": "<div class=\"ds-specimen\"><span class=\"ds-specimen-label\">Пример интерфейса</span><aside class=\"ds-update\"><svg class=\"ds-update-icon\" aria-hidden=\"true\" viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"currentColor\"><path d=\"M21,10.12h-6.78l2.74,-2.82c-2.73,-2.7 -7.15,-2.8 -9.88,-0.1c-2.73,2.71 -2.73,7.08 0,9.79s7.15,2.71 9.88,0C18.32,15.65 19,14.08 19,12.1h2c0,1.98 -0.88,4.55 -2.64,6.29c-3.51,3.48 -9.21,3.48 -12.72,0c-3.5,-3.47 -3.53,-9.11 -0.02,-12.58s9.14,-3.47 12.65,0L21,3V10.12zM12.5,8v4.25l3.5,2.08l-0.72,1.21L11,13V8H12.5z\"/></svg><div class=\"ds-update-copy\"><strong>Доступно обновление</strong><small>Версия 1.0.1</small></div><button class=\"ds-update-action\" type=\"button\">Установить</button></aside></div>",
+      "css": ".ds-specimen{padding:20px;background:#08080B;color:#EDEDF0}.ds-specimen-label{display:block;margin-bottom:10px;color:#A5A7B2;font:12px/18px 'IBM Plex Sans',sans-serif}.ds-update{font-family:'IBM Plex Sans',sans-serif;display:flex;align-items:center;gap:10px;padding:12px 16px;border:1px solid #3D477B;border-radius:16px;background:#1D2240;color:#E4E7FF}.ds-update-copy{flex:1}.ds-update strong{display:block;font-size:15px;font-weight:600;line-height:22px}.ds-update small{display:block;color:#C5CCEF;font-size:12px;line-height:18px}.ds-update-action{font-family:'IBM Plex Sans',sans-serif;min-height:48px;padding:0 8px;border:0;background:transparent;color:#9DAAFF;font-size:13px;font-weight:500;line-height:18px}.ds-update-action:hover{cursor:pointer}.ds-update-action:focus-visible{outline:2px solid #9DAAFF;outline-offset:2px}.ds-update-action:active{outline-offset:0}.ds-update-icon{color:#9DAAFF;flex-shrink:0}"
+    }
+  ],
+  "narrative": {
+    "northStar": "ShiftVPS website identity",
+    "overview": "Operate mode. The native Android, Windows and macOS interface follows the user's explicit request to match the ShiftVPS website: near-black ground, locally bundled IBM Plex Sans, quiet dots, bordered dark surfaces and a blue vertical-gradient main action. These confirmed choices supersede the first prototype's generic typography and flat-button restriction.\n\nThe interface keeps the connection task compact and legible. Brand detail lives in the shared palette, type and component treatment. Cards remain quiet; the primary action carries the strongest color. The values below describe the existing Compose implementation rather than a new visual direction.",
+    "keyCharacteristics": [
+      "Website identity carried into native controls.",
+      "Explicit connection states and a single prominent action.",
+      "Country names remain readable beside decorative native flags.",
+      "Honest example data and bounded verification claims."
+    ],
+    "rules": [
+      {
+        "name": "The Website Identity Rule",
+        "body": "Preserve the confirmed website palette, bundled Plex typography, quiet dots and gradient action when extending this interface.",
+        "section": "colors"
+      },
+      {
+        "name": "The State Has Words Rule",
+        "body": "Pair status color and selection tint with explicit text and native control semantics.",
+        "section": "colors"
+      },
+      {
+        "name": "The Flat Card Rule",
+        "body": "Cards use tonal layering and borders; the enabled primary action alone receives the soft native elevation shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do reuse the recorded palette, Plex type roles and native Material interaction behavior.",
+      "Do keep country names beside decorative vectors selected only by authoritative country metadata.",
+      "Do retain the neutral globe for unknown or unsupported countries.",
+      "Do keep errors and updates inline and connection actions reachable through scrolling.",
+      "Do label illustrative data and state the limits of CPU-rendered previews."
+    ],
+    "donts": [
+      "Don't restore the removed .ru routing caption; its removal does not change the centrally managed DIRECT policy.",
+      "Don't infer a country from a server label or hostname, or depend on flag emoji support.",
+      "Don't invent latency, availability, signal strength or performance graphics.",
+      "Don't add protocol editors, unmanaged imports, animated halos or glass treatments to this simple client.",
+      "Don't treat a raster fixture as proof of real-device connectivity, large-font behavior or OS accessibility."
+    ]
+  }
+}

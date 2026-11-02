@@ -287,7 +287,7 @@ fun Project.setupApp() {
 
         registerApkRenamer(
             replaceFrom = project.name,
-            replaceToTemplate = "husi-%VERSION_NAME%",
+            replaceToTemplate = "shiftvps-%VERSION_NAME%",
             stripTokens = listOf("-release", "-foss"),
         )
 

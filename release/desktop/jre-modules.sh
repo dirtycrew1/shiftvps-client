@@ -1,5 +1,5 @@
-# Modules linked into the bundled runtimes (the Linux AppImage and the Windows
-# JBR packages). Sourced by the packaging scripts, never executed, so it carries
+# Modules linked into the bundled runtimes (Linux, Windows and macOS).
+# Sourced by the packaging scripts, never executed, so it carries
 # a shell directive instead of a shebang.
 # shellcheck shell=bash
 

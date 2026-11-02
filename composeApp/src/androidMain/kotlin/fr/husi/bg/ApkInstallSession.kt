@@ -8,6 +8,7 @@ import android.content.pm.PackageInstaller
 import android.os.Build
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
@@ -51,7 +52,7 @@ internal suspend fun installApk(
     val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
     params.setAppPackageName(context.packageName)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+        params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED)
     }
 
     val sessionId = host.createSession(params)
@@ -62,19 +63,18 @@ internal suspend fun installApk(
                 apk.inputStream().use { it.copyTo(output) }
                 session.fsync(output)
             }
+            ensureActive()
             @SuppressLint("RequestInstallPackagesPolicy")
             session.commit(installResultSender(context, sessionId))
         }
-    } catch (e: Throwable) {
-        PendingApkInstalls.forget(sessionId)
-        runCatching { host.abandonSession(sessionId) }
-        throw e
-    }
 
-    withTimeoutOrNull(INSTALL_TIMEOUT) { result.await() } ?: run {
+        withTimeoutOrNull(INSTALL_TIMEOUT) { result.await() }
+            ?: ApkInstallResult.Failed("the installer did not report a result in $INSTALL_TIMEOUT")
+    } finally {
+        // In particular, do not release the VPN/update lease while a cancelled install session
+        // could still accept approval and replace the package later.
         PendingApkInstalls.forget(sessionId)
         runCatching { host.abandonSession(sessionId) }
-        ApkInstallResult.Failed("the installer did not report a result in $INSTALL_TIMEOUT")
     }
 }
 

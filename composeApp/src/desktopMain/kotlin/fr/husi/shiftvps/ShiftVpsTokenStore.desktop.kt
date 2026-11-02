@@ -18,6 +18,8 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
+internal actual fun prepareServiceMetrics(owner: String?, policyVersion: Int) = Unit
+
 actual fun platformShiftVpsTokenStore(): ShiftVpsTokenStore = when (PlatformInfo.platform) {
     Platform.Windows -> WindowsShiftVpsTokenStore(DesktopPaths.dataDir.resolve("client-session.dpapi"))
     Platform.MacOs -> MacShiftVpsTokenStore()

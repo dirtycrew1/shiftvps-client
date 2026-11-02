@@ -16,7 +16,7 @@ import java.net.URI
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
 import java.security.SecureRandom
-import java.util.Base64
+import okio.ByteString.Companion.toByteString
 
 internal val clientJson = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = false }
 
@@ -28,12 +28,14 @@ internal interface ClientTransport {
     suspend fun request(method: String, url: String, token: String?, body: String?): ClientResponse
 }
 
-internal class HttpsClientTransport : ClientTransport {
+internal class HttpsClientTransport(
+    private val openConnection: (URI) -> HttpURLConnection = { it.toURL().openConnection() as HttpURLConnection },
+) : ClientTransport {
     override suspend fun request(
         method: String, url: String, token: String?, body: String?,
     ): ClientResponse = withContext(Dispatchers.IO) {
         requireTrustedUrl(url)
-        val connection = URI(url).toURL().openConnection() as HttpURLConnection
+        val connection = openConnection(URI(url))
         try {
             connection.requestMethod = method
             connection.connectTimeout = 10000
@@ -87,11 +89,11 @@ private val TRUSTED_CLIENT_HOSTS = setOf("shiftvps.ru", "web-backup.shiftvps.ru"
 
 internal fun createVerifier(): String {
     val bytes = ByteArray(32).also { SecureRandom().nextBytes(it) }
-    return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+    return bytes.toByteString().base64Url().trimEnd('=')
 }
 
-internal fun verifierChallenge(verifier: String): String = Base64.getUrlEncoder().withoutPadding()
-    .encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII)))
+internal fun verifierChallenge(verifier: String): String = MessageDigest.getInstance("SHA-256")
+    .digest(verifier.toByteArray(Charsets.US_ASCII)).toByteString().base64Url().trimEnd('=')
 
 internal class ShiftVpsApi(private val transport: ClientTransport = HttpsClientTransport()) {
     private var origin = "https://shiftvps.ru"
@@ -124,16 +126,23 @@ internal class ShiftVpsApi(private val transport: ClientTransport = HttpsClientT
         val policy = runCatching {
             clientJson.decodeFromJsonElement<ShiftVpsPolicy>(document.getValue("policy")).validated()
         }.getOrElse { lastGoodPolicy.validated() }
-        return ShiftVpsManifest(account, policy)
+        val groups = document["server_groups"]?.let { element ->
+            runCatching { clientJson.decodeFromJsonElement<List<ShiftVpsServerGroup>>(element) }.getOrNull()
+        }.orEmpty()
+        return ShiftVpsManifest(account, policy, groups)
     }
 
     suspend fun feed(token: String): String = request("GET", "/feed", token)
 
     suspend fun logout(token: String) { request("POST", "/logout", token, "{}") }
 
-    suspend fun metrics(token: String, events: List<ClientMetric>) {
+    suspend fun metrics(token: String, events: List<ClientMetric>, batchId: String? = null) {
         val encoded = clientJson.encodeToJsonElement(ListSerializer(ClientMetric.serializer()), events.take(20))
-        request("POST", "/events", token, buildJsonObject { put("events", encoded) }.toString())
+        require(batchId == null || batchId.matches(Regex("[0-9a-f]{64}")))
+        request("POST", "/events", token, buildJsonObject {
+            put("events", encoded)
+            if (batchId != null) put("batch_id", batchId)
+        }.toString())
     }
 
     private suspend fun request(method: String, path: String, token: String? = null, body: String? = null): String {

@@ -9,7 +9,7 @@ import fr.husi.repository.DesktopRepository
 import fr.husi.resources.Res
 import fr.husi.resources.app_name
 import fr.husi.resources.exit
-import fr.husi.resources.ic_service_active
+import fr.husi.resources.ic_shiftvps
 import fr.husi.resources.shiftvps_disconnect
 import fr.husi.resources.shiftvps_open_app
 import org.jetbrains.compose.resources.painterResource
@@ -24,7 +24,7 @@ internal fun HusiTray(
 ) {
     val status by BackendState.status.collectAsState()
     Tray(
-        icon = painterResource(Res.drawable.ic_service_active),
+        icon = painterResource(Res.drawable.ic_shiftvps),
         tooltip = stringResource(Res.string.app_name),
         primaryAction = onOpenWindow,
         menuContent = {

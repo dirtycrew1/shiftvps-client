@@ -1,0 +1,3 @@
+# Preserve the upstream font license verbatim, including its original whitespace.
+IBM-PLEX-LICENSE.txt whitespace=-blank-at-eol
+composeApp/src/commonMain/composeResources/files/ibm_plex_license.txt whitespace=-blank-at-eol

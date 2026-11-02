@@ -54,6 +54,7 @@ fun enforceManagedRouting(options: JSONMap) {
 
     val outbounds = (options["outbounds"] as? List<Any?>).orEmpty().toMutableList()
     outbounds.removeAll { (it as? Map<*, *>)?.get("tag") == MANAGED_DIRECT_TAG }
-    outbounds.add(linkedMapOf("type" to "direct", "tag" to MANAGED_DIRECT_TAG, "domain_resolver" to MANAGED_DNS_TAG))
+    outbounds.add(linkedMapOf("type" to "direct", "tag" to MANAGED_DIRECT_TAG,
+        "domain_resolver" to linkedMapOf("server" to MANAGED_DNS_TAG)))
     options["outbounds"] = outbounds
 }

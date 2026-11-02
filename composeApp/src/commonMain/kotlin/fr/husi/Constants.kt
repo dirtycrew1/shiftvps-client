@@ -1,6 +1,6 @@
 package fr.husi
 
-const val HUSI_REPOSITORY = "xchacha20-poly1305/husi"
+const val HUSI_REPOSITORY = "dirtycrew1/shiftvps-client"
 
 /** Well-known UDS name under the core host dir (mirrors coresvc.Socket). */
 const val CORE_SOCKET_NAME = "api.sock"

@@ -4,11 +4,9 @@ GO_PATCH_1234 = "https://github.com/golang/go/commit/59b7d40774b29bd1da1aa624f13
 CLIP = sh -c 'if [ -n "$$WAYLAND_DISPLAY" ]; then exec wl-copy; \
               elif [ -n "$$DISPLAY" ]; then exec xclip -selection clipboard; \
               else echo "No display detected (WAYLAND_DISPLAY/DISPLAY missing)"; exit 1; fi'
-# androidx sqlite-bundled ships no libsqliteJni for every platform, and without it
-# Room cannot open the database. darwin/amd64 (osx_x64) is dropped for good; windows/arm64
-# is only commented out, waiting for https://issuetracker.google.com/issues/426464784.
-DARWIN_AMD64_SQLITE_ISSUE = https://issuetracker.google.com/issues/495864182
-DESKTOP_TARGETS_COMMON = linux/amd64,linux/arm64,darwin/arm64,windows/amd64
+# Intel macOS uses the complete, Room-compatible official SQLite 2.6.2 driver.
+# Windows ARM still lacks a supported SQLite native library.
+DESKTOP_TARGETS_COMMON = linux/amd64,linux/arm64,darwin/arm64,darwin/amd64,windows/amd64
 DESKTOP_TARGETS_LINUX = linux/amd64 linux/arm64
 # DESKTOP_TARGETS_WINDOWS = windows/amd64 windows/arm64
 DESKTOP_TARGETS_WINDOWS = windows/amd64
@@ -19,7 +17,13 @@ DESKTOP_TARGET_SCRIPT_ARG = $(if $(DESKTOP_TARGET),--target $(DESKTOP_TARGET),)
 DESKTOP_APP_ARGS = $(if $(strip $(ARGS)),--args="$(ARGS)",)
 DARWIN_SDK_SCRIPT_ARG = $(if $(DARWIN_SDK),--darwinsdk "$(DARWIN_SDK)",)
 WINDOWS_NO_SIGN_SCRIPT_ARG = $(if $(filter 1,$(WINDOWS_NO_SIGN)),--no-sign,)
-LAUNCHER_ZIG_TARGET = $(subst linux/amd64,x86_64-linux-musl,$(subst linux/arm64,aarch64-linux-musl,$(subst darwin/arm64,aarch64-macos,$(subst windows/amd64,x86_64-windows,$(subst windows/arm64,aarch64-windows,$(DESKTOP_TARGET))))))
+LAUNCHER_ZIG_TARGET_linux/amd64 = x86_64-linux-musl
+LAUNCHER_ZIG_TARGET_linux/arm64 = aarch64-linux-musl
+LAUNCHER_ZIG_TARGET_darwin/arm64 = aarch64-macos
+LAUNCHER_ZIG_TARGET_darwin/amd64 = x86_64-macos
+LAUNCHER_ZIG_TARGET_windows/amd64 = x86_64-windows
+LAUNCHER_ZIG_TARGET_windows/arm64 = aarch64-windows
+LAUNCHER_ZIG_TARGET = $(LAUNCHER_ZIG_TARGET_$(DESKTOP_TARGET))
 LAUNCHER_ZIG_TARGET_ARG = $(if $(LAUNCHER_ZIG_TARGET),-Dtarget=$(LAUNCHER_ZIG_TARGET),)
 
 # make expands DESKTOP_TARGETS into a single literal word, so the shell's IFS
@@ -79,6 +83,9 @@ desktop_package_macos:
 	$(MAKE) launcher
 	$(MAKE) core_desktop DESKTOP_TARGETS=$(if $(DESKTOP_TARGET),$(DESKTOP_TARGET),host)
 	./release/macos/package.sh $(DESKTOP_TARGET_SCRIPT_ARG)
+	@if [ "$(HOST_OS)" = "Darwin" ] && [ "$(DESKTOP_TARGET)" = "darwin/arm64" ] && [ "$(SHIFT_BUILD_MAC_INTEL)" != "0" ]; then \
+		$(MAKE) desktop_package_macos DESKTOP_TARGET=darwin/amd64 SHIFT_BUILD_MAC_INTEL=0; \
+	fi
 
 desktop_package_windows:
 	@if [ -z "$(DESKTOP_TARGET)" ]; then \
@@ -133,7 +140,7 @@ aboutlibraries_desktop:
 launcher:
 	cd launcher && zig build -Doptimize=ReleaseSmall $(LAUNCHER_ZIG_TARGET_ARG)
 
-apk:
+apk: shiftvps_checks
 	BUILD_PLUGIN=none ./gradlew androidApp:assembleFossRelease
 
 apk_debug:
@@ -179,6 +186,12 @@ test: test_gradle test_go test_zig
 
 test_gradle:
 	./gradlew :composeApp:allTests
+
+# Runs without a core process or any VPN/system-proxy changes. Release builds
+# must exercise the account/policy/queue and actual native UI before packaging.
+.PHONY: shiftvps_checks
+shiftvps_checks:
+	BUILD_PLUGIN=none ./gradlew :composeApp:desktopTest --tests 'fr.husi.shiftvps.*' --tests 'fr.husi.ui.shiftvps.ShiftVpsScreenSnapshotTest' --tests 'fr.husi.database.DesktopSQLiteCompatibilityTest'
 
 # Android lint, NewApi only: commonMain compiles against the desktop JDK, so a JDK API
 # missing below minSdk passes compilation and crashes old Android at runtime.

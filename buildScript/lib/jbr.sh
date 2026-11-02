@@ -3,8 +3,8 @@
 # Download the JetBrains Runtime SDK pinned by JBR_RELEASE for one target.
 #
 # JBR is the only JDK this project uses: it builds everything, and its modules
-# are what jlink links into the bundled runtimes (Linux AppImage, Windows -jbr
-# packages). Keeping one vendor means the runtime users get is the one CI built
+# are what jlink links into the Linux, Windows and macOS bundled runtimes.
+# Keeping one vendor means the runtime users get is the one CI built
 # and tested with.
 #
 # By default only the jmods directory is unpacked: it is all jlink reads, and
@@ -41,7 +41,7 @@ Usage:
   $(basename "$0") <platform/arch> [--sdk]
 
 Targets: linux/amd64, linux/arm64, windows/amd64, windows/arm64,
-         darwin/amd64 and darwin/arm64 (--sdk only)
+         darwin/amd64 and darwin/arm64
 
 Without --sdk, prints the jmods directory; with --sdk, prints JAVA_HOME.
 USAGE
@@ -75,6 +75,7 @@ fi
 
 platform="${target%%/*}"
 arch="${target#*/}"
+jmods_strip_components=1
 
 # java_home_subdir: where JAVA_HOME sits inside the unpacked archive.
 case "$platform" in
@@ -86,10 +87,7 @@ case "$platform" in
         platform="darwin"
         jbr_platform="osx"
         java_home_subdir="Contents/Home"
-        if [[ "$want_sdk" != true ]]; then
-            error "No macOS package bundles a runtime, so darwin modules are only fetched with --sdk."
-            exit 1
-        fi
+        jmods_strip_components=3
         ;;
     *)
         error "Unsupported platform '$platform'. Use linux, windows or darwin."
@@ -113,6 +111,12 @@ case "$arch" in
 esac
 
 archive_name="jbrsdk-${JBR_VERSION}-${jbr_platform}-${jbr_arch}-b${JBR_BUILD}.tar.gz"
+sdk_jmods_dir="$INSTALL_ROOT/sdk/${platform}_${arch}${java_home_subdir:+/$java_home_subdir}/jmods"
+if [[ "$want_sdk" != true && -f "$sdk_jmods_dir/java.base.jmod" ]]; then
+    log "Reusing pinned SDK modules: $sdk_jmods_dir"
+    echo "$sdk_jmods_dir"
+    exit 0
+fi
 if [[ "$want_sdk" == true ]]; then
     install_dir="$INSTALL_ROOT/sdk/${platform}_${arch}"
     result_dir="$install_dir${java_home_subdir:+/$java_home_subdir}"
@@ -138,7 +142,12 @@ mkdir -p "$install_dir"
 if [[ "$want_sdk" == true ]]; then
     extract=(tar -C "$install_dir" --strip-components=1 -xzf -)
 else
-    extract=(tar -C "$install_dir" --strip-components=1 --wildcards -xzf - '*/jmods/*')
+    extract=(tar -C "$install_dir" --strip-components="$jmods_strip_components" -xzf -)
+    # GNU tar needs the flag; macOS bsdtar matches these patterns by default.
+    if tar --version 2>/dev/null | grep -q "GNU tar"; then
+        extract+=(--wildcards)
+    fi
+    extract+=('*/jmods/*')
 fi
 if ! curl -sSfL "$JBR_BASE_URL/$archive_name" | "${extract[@]}"; then
     rm -rf "$install_dir"

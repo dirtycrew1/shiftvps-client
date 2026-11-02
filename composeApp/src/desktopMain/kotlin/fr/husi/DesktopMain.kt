@@ -1,5 +1,6 @@
 package fr.husi
 
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -230,11 +231,22 @@ class DesktopMain(
             }
 
             fun exitGracefully() {
+                fr.husi.shiftvps.DesktopWindowsUpdater.close()
+                fr.husi.shiftvps.DesktopMacUpdater.close()
                 runCatching {
                     repository.coreHostController.shutdownHost()
                     repository.releaseCoreRunDir()
                 }
                 exitApplication()
+            }
+
+            DisposableEffect(repository) {
+                fr.husi.shiftvps.DesktopWindowsUpdater.initialize(::exitGracefully)
+                fr.husi.shiftvps.DesktopMacUpdater.initialize()
+                onDispose {
+                    fr.husi.shiftvps.DesktopWindowsUpdater.close()
+                    fr.husi.shiftvps.DesktopMacUpdater.close()
+                }
             }
 
             val leaveWindow: () -> Unit = if (noTray) {

@@ -17,9 +17,6 @@ TAGS=(
 
 IFS="," BUILD_TAGS="${TAGS[*]}"
 
-# Room needs a libsqliteJni for the target, and androidx sqlite-bundled has none for osx_x64.
-DARWIN_AMD64_SQLITE_ISSUE="https://issuetracker.google.com/issues/495864182"
-
 BUILD_DESKTOP=0
 BUILD_ANDROID=0
 PLATFORM_SPECIFIED=0
@@ -141,8 +138,8 @@ apply_darwin_toolchain_env() {
         zig_target="aarch64-macos"
         ;;
     amd64)
-        echo "darwin/amd64 is dropped: androidx sqlite-bundled has no osx_x64 binary, see $DARWIN_AMD64_SQLITE_ISSUE"
-        exit 1
+        clang_arch="x86_64"
+        zig_target="x86_64-macos"
         ;;
     *)
         echo "Unsupported Darwin desktop target: $desktop_target"

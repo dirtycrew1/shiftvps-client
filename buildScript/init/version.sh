@@ -8,7 +8,7 @@ GO_VERSION="1.27.3"
 # renovate: datasource=github-releases depName=rust-lang/rust
 RUST_VERSION="1.99.1"
 # The only JDK in use: CI builds with it (.github/actions/setup-jbr), and its
-# modules are bundled into the Windows JBR packages and the Linux AppImage.
+# modules are bundled into the Windows, macOS and Linux client packages.
 # JAVA_VERSION is the JBR feature version: the host jlink links these jmods,
 # and jlink cannot read jmods newer than itself.
 # renovate: datasource=github-releases depName=JetBrains/JetBrainsRuntime

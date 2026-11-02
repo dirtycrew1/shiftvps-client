@@ -1,6 +1,8 @@
 package fr.husi.shiftvps
 
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -109,5 +111,23 @@ class ShiftVpsApiTest {
         assertFalse(recentVerification(now - 86_400_001L, now))
         assertFalse(recentVerification(0L, now))
         assertFalse(recentVerification(now + 1L, now))
+    }
+
+    @Test
+    fun `durable telemetry sends a stable batch identity and separate device occurrence time`() = runTest {
+        var posted: String? = null
+        val api = ShiftVpsApi(object : ClientTransport {
+            override suspend fun request(method: String, url: String, token: String?, body: String?): ClientResponse {
+                posted = body
+                return ClientResponse(204, "")
+            }
+        })
+        val metric = ClientMetric("disconnected", errorCode = "tls", appVersion = "0.1.0", platform = "android",
+            policyVersion = 1, occurredAt = 1_700_000_000L)
+        api.metrics("fixture-token", listOf(metric), "a".repeat(64))
+        val payload = clientJson.parseToJsonElement(posted!!) as JsonObject
+        assertEquals("a".repeat(64), payload["batch_id"]?.jsonPrimitive?.content)
+        assertTrue(posted!!.contains("\"occurred_at\":1700000000"))
+        assertFalse(posted!!.contains("fixture-token"))
     }
 }

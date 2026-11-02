@@ -17,6 +17,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission
         android:name="android.permission.NEARBY_WIFI_DEVICES"
         android:minSdkVersion="36" />
@@ -60,11 +61,11 @@
 
     <application
         android:name="fr.husi.Application"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:banner="@drawable/ic_banner"
-        android:dataExtractionRules="@xml/backup_rules"
+        android:dataExtractionRules="@xml/shiftvps_backup_rules"
         android:enableOnBackInvokedCallback="true"
-        android:fullBackupContent="@xml/backup_descriptor"
+        android:fullBackupContent="false"
         android:fullBackupOnly="true"
         android:hardwareAccelerated="true"
         android:hasFragileUserData="true"

@@ -76,7 +76,7 @@ sign_pe() {
     local -a arguments=(
         sign
         -pkcs12 "$SIGNING_P12"
-        -pass "$SIGNING_P12_PASSWORD"
+        -readpass /dev/fd/3
         -h sha256
         -n "$APP_NAME"
         -i "$APP_URL"
@@ -89,7 +89,7 @@ sign_pe() {
     fi
 
     rm -f "$signed_path"
-    if ! "$SIGNING_TOOL" "${arguments[@]}"; then
+    if ! "$SIGNING_TOOL" "${arguments[@]}" 3<<<"$SIGNING_P12_PASSWORD"; then
         rm -f "$signed_path"
         error "Failed to sign: $path"
         exit 1

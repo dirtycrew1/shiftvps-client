@@ -2,4 +2,4 @@
 
 set -euo pipefail
 
-exec python3 buildScript/icon.py "$@"
+exec "${PYTHON:-python3}" buildScript/icon.py "$@"

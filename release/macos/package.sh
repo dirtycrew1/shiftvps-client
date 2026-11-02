@@ -6,11 +6,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 METADATA_FILE="$ROOT_DIR/husi.properties"
 DESKTOP_METADATA_FILE="$ROOT_DIR/release/desktop/package-metadata.sh"
+DESKTOP_JRE_MODULES_FILE="$ROOT_DIR/release/desktop/jre-modules.sh"
 JAR_DIR_DEFAULT="$ROOT_DIR/composeApp/build/compose/jars"
 OUTPUT_DIR_DEFAULT="$ROOT_DIR/composeApp/build/compose/packages/macos"
 PREBUILT_ICON_DEFAULT="$ROOT_DIR/release/macos/desktop/icon.icns"
-# Room needs a libsqliteJni for the target, and androidx sqlite-bundled has none for osx_x64.
-DARWIN_AMD64_SQLITE_ISSUE="https://issuetracker.google.com/issues/495864182"
+JBR_JMODS_DIR=""
 PACKAGE_NAME_PLACEHOLDER="__HUSI_PACKAGE_NAME__"
 APP_NAME_PLACEHOLDER="__HUSI_APP_NAME__"
 APP_DESCRIPTION_PLACEHOLDER="__HUSI_APP_DESCRIPTION__"
@@ -24,6 +24,8 @@ TAG_EPOCH=""
 TOUCH_TIMESTAMP=""
 IMAGE_MODIFICATION_DATE=""
 
+source "$SCRIPT_DIR/sparkle.sh"
+
 log() {
     echo "[package] $*"
 }
@@ -35,11 +37,11 @@ error() {
 usage() {
     cat <<EOF
 Usage:
-  $(basename "$0") [--target <platform/arch>] [--input-jar <file>] [--launcher-bin <file>] [--core-bin <file>] [--output-dir <dir>]
+  $(basename "$0") [--target <platform/arch>] [--input-jar <file>] [--launcher-bin <file>] [--core-bin <file>] [--jbr-jmods <dir>] [--output-dir <dir>]
   $(basename "$0") --check-tools [--target <platform/arch>]
 
 Description:
-  Build a macOS dmg package for system Java runtime from desktop uber jar.
+  Build a macOS dmg with a pinned bundled JetBrains Runtime; no system Java is needed.
 
 Defaults:
   --target       host darwin/<arch>
@@ -47,6 +49,7 @@ Defaults:
   --launcher-bin $ROOT_DIR/launcher/zig-out/bin/launcher-macos-aarch64
   --core-bin     $ROOT_DIR/libcore/build/darwin_arm64/husi-core
   --output-dir   $OUTPUT_DIR_DEFAULT
+  --jbr-jmods    auto-fetch pinned target modules (env: JBR_JMODS)
   icon asset     $PREBUILT_ICON_DEFAULT
 
 Host backends:
@@ -109,6 +112,12 @@ source_desktop_metadata() {
     # it is anchored at the repository root.
     # shellcheck source=../desktop/package-metadata.sh
     source "$DESKTOP_METADATA_FILE"
+    if [[ ! -f "$DESKTOP_JRE_MODULES_FILE" ]]; then
+        error "Desktop JRE module list not found: $DESKTOP_JRE_MODULES_FILE"
+        exit 1
+    fi
+    # shellcheck source=../desktop/jre-modules.sh
+    source "$DESKTOP_JRE_MODULES_FILE"
 }
 
 load_metadata() {
@@ -119,9 +128,14 @@ load_metadata() {
 
     PACKAGE_NAME="$(awk -F= '$1=="PACKAGE_NAME"{print $2; exit}' "$METADATA_FILE")"
     VERSION_NAME="$(awk -F= '$1=="VERSION_NAME"{print $2; exit}' "$METADATA_FILE")"
+    VERSION_CODE="$(awk -F= '$1=="VERSION_CODE"{print $2; exit}' "$METADATA_FILE")"
 
     if [[ -z "$PACKAGE_NAME" || -z "$VERSION_NAME" ]]; then
         error "Failed to parse PACKAGE_NAME or VERSION_NAME from $METADATA_FILE"
+        exit 1
+    fi
+    if [[ ! "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]; then
+        error "VERSION_CODE must be a positive integer for signed appcast version ordering."
         exit 1
     fi
 
@@ -203,14 +217,13 @@ normalize_arch() {
     value="$(echo "$1" | tr '[:upper:]' '[:lower:]')"
     case "$value" in
         amd64|x86_64)
-            error "darwin/amd64 is dropped: androidx sqlite-bundled has no osx_x64 binary, see $DARWIN_AMD64_SQLITE_ISSUE"
-            exit 1
+            echo "amd64"
             ;;
         arm64|aarch64)
             echo "arm64"
             ;;
         *)
-            error "Unsupported arch '$1'. Use arm64."
+            error "Unsupported arch '$1'. Use amd64 or arm64."
             exit 1
             ;;
     esac
@@ -234,6 +247,10 @@ resolve_target() {
 
 resolve_arch() {
     case "$TARGET_ARCH" in
+        amd64)
+            JAR_ARCH="x64"
+            LAUNCHER_MACHINE="x86_64"
+            ;;
         arm64)
             JAR_ARCH="arm64"
             LAUNCHER_MACHINE="aarch64"
@@ -268,13 +285,13 @@ resolve_dmg_backend() {
 }
 
 require_tools() {
-    local -a tools=(awk sed grep find cp chmod ln ls mkdir mktemp date git sort head rm touch)
+    local -a tools=(awk sed grep find cp chmod ln ls mkdir mktemp date git sort head rm touch bash curl tar jar jlink file)
     local -a missing=()
     local tool
 
     case "$DMG_BACKEND" in
         hdiutil)
-            tools+=(hdiutil)
+            tools+=(hdiutil codesign xcrun lipo shasum python3 plutil)
             ;;
         xorrisofs)
             tools+=("$DMG_COMMAND")
@@ -398,6 +415,69 @@ resolve_core_bin() {
     exit 1
 }
 
+resolve_jbr_jmods() {
+    local requested="$1"
+    if [[ -n "$requested" ]]; then
+        JBR_JMODS_DIR="$requested"
+    elif [[ -n "${JBR_JMODS:-}" ]]; then
+        JBR_JMODS_DIR="$JBR_JMODS"
+    else
+        JBR_JMODS_DIR="$(bash "$ROOT_DIR/buildScript/lib/jbr.sh" "darwin/$TARGET_ARCH")"
+    fi
+    if [[ ! -f "$JBR_JMODS_DIR/java.base.jmod" ]]; then
+        error "Missing target JetBrains Runtime modules: $JBR_JMODS_DIR"
+        exit 1
+    fi
+}
+
+verify_sqlite_native() {
+    local native_arch="x64"
+    if [[ "$TARGET_ARCH" == "arm64" ]]; then native_arch="arm64"; fi
+    local resource="natives/osx_${native_arch}/libsqliteJni.dylib"
+    if ! jar tf "$INPUT_JAR" | grep -Fx "$resource" >/dev/null; then
+        error "Desktop jar is missing the exact target SQLite native library: $resource"
+        exit 1
+    fi
+}
+
+verify_native_binary() {
+    local binary="$1"
+    local expected_machine="arm64"
+    if [[ "$TARGET_ARCH" == "amd64" ]]; then expected_machine="x86_64"; fi
+    if ! file "$binary" | grep "Mach-O.*$expected_machine" >/dev/null; then
+        error "Binary does not match darwin/$TARGET_ARCH: $binary"
+        exit 1
+    fi
+}
+
+build_bundled_runtime() {
+    local runtime_dir="$1"
+    # Target jmods determine the output OS/architecture; never execute a foreign image.
+    jlink \
+        --module-path "$JBR_JMODS_DIR" \
+        --add-modules "$DESKTOP_JRE_MODULES_COMMON" \
+        --strip-java-debug-attributes \
+        --no-header-files \
+        --no-man-pages \
+        --compress=zip-6 \
+        --output "$runtime_dir"
+    local binary
+    for binary in "$runtime_dir/bin/java" "$runtime_dir/lib/server/libjvm.dylib"; do
+        verify_native_binary "$binary"
+    done
+    log "Linked bundled runtime for darwin/$TARGET_ARCH: $runtime_dir"
+}
+
+sign_test_bundle() {
+    local bundle_root="$1"
+    if [[ "$HOST_OS" == "darwin" ]]; then
+        codesign --force --deep --sign - "$bundle_root"
+        codesign --verify --deep --strict "$bundle_root"
+        log "Ad-hoc signed test bundle; Developer ID notarization is not configured."
+    else
+        log "Cross-built bundle is unsigned; validate it on macOS before distribution."
+    fi
+}
 
 normalize_macos_bundle_version() {
     local version="$1"
@@ -442,6 +522,7 @@ prepare_app_bundle() {
     local icon_name="${PACKAGE_NAME}.icns"
     local bundle_version
     bundle_version="$(normalize_macos_bundle_version "$VERSION_NAME")"
+    prepare_sparkle_metadata
 
     mkdir -p "$macos_dir" "$resources_dir" "$app_dir"
     cp "$INPUT_JAR" "$app_dir/$PACKAGE_NAME.jar"
@@ -452,6 +533,7 @@ prepare_app_bundle() {
     cp "$ROOT_DIR/release/linux/desktop/desktop-java-opts.conf" "$macos_dir/desktop-java-opts.conf.template"
     cp "$ROOT_DIR/release/linux/desktop/desktop-app-args.conf" "$macos_dir/desktop-app-args.conf.template"
     cp "$ICON_ICNS" "$resources_dir/$icon_name"
+    cp "$ROOT_DIR/LICENSE" "$resources_dir/LICENSE.txt"
 
     render_template \
         "$plist_template" \
@@ -463,13 +545,19 @@ prepare_app_bundle() {
         "$ICON_FILE_PLACEHOLDER" "$icon_name" \
         "$URL_TYPE_NAME_PLACEHOLDER" "$DESKTOP_URL_TYPE_NAME" \
         "$URL_SCHEME_ENTRIES_PLACEHOLDER" "$URL_SCHEME_ENTRIES" \
-        "$MACOS_BUNDLE_VERSION_PLACEHOLDER" "$bundle_version"
+        "$MACOS_BUNDLE_VERSION_PLACEHOLDER" "$VERSION_CODE" \
+        "__HUSI_MACOS_SHORT_VERSION__" "$bundle_version" \
+        "__SHIFT_UPDATE_FEED__" "$SPARKLE_FEED_URL" \
+        "__SHIFT_UPDATE_PUBLIC_KEY__" "$SPARKLE_PUBLIC_KEY"
 
     render_info_plist_strings "$resources_dir/en.lproj" "$APP_NAME" "$APP_DESCRIPTION"
     render_info_plist_strings "$resources_dir/zh_CN.lproj" "$APP_NAME_ZH_CN" "$APP_DESCRIPTION_ZH_CN"
     render_info_plist_strings "$resources_dir/zh_TW.lproj" "$APP_NAME_ZH_TW" "$APP_DESCRIPTION_ZH_TW"
 
+    build_bundled_runtime "$contents_dir/runtime"
+    install_sparkle_updater "$contents_dir"
     touch_path_tree "$bundle_root"
+    sign_test_bundle "$bundle_root"
 }
 
 build_dmg_with_hdiutil() {
@@ -545,6 +633,7 @@ HOST_OS=""
 DMG_BACKEND=""
 DMG_COMMAND=""
 ICON_ICNS=""
+JBR_JMODS_ARG=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -566,6 +655,11 @@ while [[ $# -gt 0 ]]; do
         --core-bin)
             require_arg "$1" "${2:-}"
             INPUT_CORE_BIN="$2"
+            shift 2
+            ;;
+        --jbr-jmods)
+            require_arg "$1" "${2:-}"
+            JBR_JMODS_ARG="$2"
             shift 2
             ;;
         -o|--output-dir)
@@ -606,6 +700,10 @@ fi
 resolve_input_jar "$INPUT_JAR"
 resolve_launcher_bin "$INPUT_LAUNCHER_BIN"
 resolve_core_bin "$INPUT_CORE_BIN"
+verify_native_binary "$INPUT_LAUNCHER_BIN"
+verify_native_binary "$INPUT_CORE_BIN"
+verify_sqlite_native
+resolve_jbr_jmods "$JBR_JMODS_ARG"
 mkdir -p "$OUTPUT_DIR"
 
 work_dir="$(mktemp -d)"

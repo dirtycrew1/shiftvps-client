@@ -11,6 +11,7 @@ interface ShiftVpsTokenStore {
 }
 
 expect fun platformShiftVpsTokenStore(): ShiftVpsTokenStore
+internal expect fun prepareServiceMetrics(owner: String?, policyVersion: Int)
 
 data class ShiftVpsServer(
     val id: Long,
@@ -18,6 +19,7 @@ data class ShiftVpsServer(
     val latencyMs: Int? = null,
     val checking: Boolean = false,
     val reachable: Boolean? = null,
+    val countryCode: String = "",
 )
 
 data class ShiftVpsUiState(
@@ -51,6 +53,15 @@ data class ShiftVpsAccount(
 data class ShiftVpsManifest(
     val account: ShiftVpsAccount,
     val policy: ShiftVpsPolicy,
+    @SerialName("server_groups") val serverGroups: List<ShiftVpsServerGroup> = emptyList(),
+)
+
+@Serializable
+data class ShiftVpsServerGroup(
+    val id: String,
+    val name: String,
+    @SerialName("endpoint_ids") val endpointIds: List<String>,
+    @SerialName("country_code") val countryCode: String = "",
 )
 
 @Serializable
@@ -75,7 +86,7 @@ data class ShiftVpsPolicy(
         require(latency.testUrl in ALLOWED_PROBE_URLS)
         require(refreshIntervalSeconds in 60..3600)
         require(connectTimeoutMs in 3000..30000)
-        require(telemetry.batchIntervalSeconds in 30..3600)
+        require(telemetry.batchIntervalSeconds in 30..300)
         return this
     }
 
@@ -137,6 +148,7 @@ internal data class ClientMetric(
     @SerialName("app_version") val appVersion: String,
     val platform: String,
     @SerialName("policy_version") val policyVersion: Int,
+    @SerialName("occurred_at") val occurredAt: Long? = null,
 )
 
 internal fun rankServers(servers: List<ShiftVpsServer>): List<ShiftVpsServer> = servers.sortedWith(

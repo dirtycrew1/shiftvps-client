@@ -1,13 +1,10 @@
 package fr.husi.bg.proto
 
-import fr.husi.Key
 import fr.husi.bg.BaseService
 import fr.husi.bg.ServiceEventPublisher
 import fr.husi.core.CoreClient
 import fr.husi.database.DataStore
 import fr.husi.database.ProxyEntity
-import fr.husi.fmt.ConfigBuildResult
-import fr.husi.ktx.Logs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,21 +22,6 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
 
     /** Owns the traffic looper, cancelled in [close] so nothing outlives this instance. */
     private val looperScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-
-    override suspend fun buildConfig(): ConfigBuildResult = super.buildConfig().also {
-        Logs.d(it.configJson)
-        if (DataStore.advancedFeature(Key.ADVANCED_DEBUG) != null) {
-            Logs.d("trafficProfiles: " + it.metadata.trafficProfiles.toString())
-        }
-    }
-
-    override suspend fun init() {
-        super.init()
-        pluginConfigs.forEach { (_, plugin) ->
-            val (_, content) = plugin
-            Logs.d(content)
-        }
-    }
 
     override fun launch() {
         super.launch() // start box

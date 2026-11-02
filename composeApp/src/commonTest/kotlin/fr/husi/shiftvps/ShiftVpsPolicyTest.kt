@@ -41,7 +41,7 @@ class ShiftVpsPolicyTest {
         assertEquals("proxy", (rules[3] as Map<*, *>)["outbound"])
         val direct = (options["outbounds"] as List<*>).single() as Map<*, *>
         assertEquals("direct", direct["type"])
-        assertEquals(MANAGED_DNS_TAG, direct["domain_resolver"])
+        assertEquals(mapOf("server" to MANAGED_DNS_TAG), direct["domain_resolver"])
     }
 
     @Test

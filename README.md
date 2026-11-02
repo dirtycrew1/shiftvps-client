@@ -117,11 +117,15 @@ Common desktop targets:
 * `linux/amd64`
 * `linux/arm64`
 * `darwin/arm64`
+* `darwin/amd64`
 
-`darwin/amd64` is no longer supported and `windows/arm64` is temporarily not shipped: androidx
-sqlite-bundled has no binary for them, so the app cannot open its database there. See
-[issuetracker 495864182](https://issuetracker.google.com/issues/495864182) for `osx_x64` and
-[issuetracker 426464784](https://issuetracker.google.com/issues/426464784) for `windows_arm64`.
+Intel macOS uses the complete official `androidx.sqlite:sqlite-bundled:2.6.2` artifact,
+which includes `natives/osx_x64/libsqliteJni.dylib`. This is also the SQLite baseline of
+Room 2.8.5. Android, Apple Silicon and other desktop targets retain SQLite 2.7.1.
+The pin is target-specific; no JNI libraries are copied between releases. Review it when
+updating Room or when AndroidX restores Intel binaries. `windows/arm64` remains unsupported
+because its bundled SQLite JNI is unavailable; see
+[issuetracker 426464784](https://issuetracker.google.com/issues/426464784).
 
 Linux and Windows targets build without cgo, so they need no C toolchain: `husi-core` loads the
 prebuilt Cronet shared library (glibc 2.17 or newer on Linux) from its own directory at runtime, and
@@ -361,13 +365,25 @@ You can preflight required tooling without producing packages:
 ./release/linux/package.sh --check-tools --formats deb,rpm,pacman
 ```
 
-Build macOS `.dmg` packages with system Java runtime dependency:
+Build self-contained macOS `.dmg` packages for Apple Silicon or Intel:
 
 ```shell
 make desktop_package_macos
+make desktop_package_macos DESKTOP_TARGET=darwin/amd64
 ```
 
-This command builds the uber jar first, then packages it into `Husi.app` and a `.dmg` image.
+This command builds the target uber jar, launcher and core, then packages them into
+`ShiftVPS.app` and a `.dmg` image. Both architectures bundle the pinned JetBrains Runtime,
+so users do not need to install Java. Target modules are fetched with `./run lib jbr darwin/<arch>`;
+an existing matching pinned SDK is reused. `JBR_JMODS` or `--jbr-jmods` can supply a prepared
+target module directory. The host `jlink` must support the pinned JBR's Java feature version.
+
+The linked runtime lives at `ShiftVPS.app/Contents/runtime`, which the launcher already searches.
+Packaging checks the exact SQLite JNI resource in the target jar and the Mach-O architecture
+of the launcher, core and Java runtime. macOS builds receive an ad-hoc test signature and a
+local signature verification; this is not Developer ID signing or Apple notarization and does
+not establish Gatekeeper trust for public distribution. Validate the resulting application on
+both real architectures, or on Intel through an existing Rosetta installation, before a public release.
 
 The app bundle icon is a checked-in static asset generated from
 `composeApp/src/commonMain/composeResources/drawable/ic_launcher_foreground.xml`,
@@ -384,8 +400,8 @@ make desktop_package_macos DESKTOP_TARGET=darwin/arm64
 
 Required host tools:
 
-* Common: `zig`, `git`
-* macOS host: `hdiutil`
+* Common: `zig`, `git`, `jar`, `jlink`, `file`, `curl`, `tar`
+* macOS host: `hdiutil`, `codesign`
 * Linux fallback: `xorrisofs`
 
 Package timestamps are derived from git tag `v<VERSION_NAME>` from `husi.properties`,
@@ -399,8 +415,8 @@ composeApp/build/compose/packages/macos/
 Installed app bundle uses the same native launcher from `launcher/` as Linux packaging.
 User config files are created under:
 
-* `~/Library/Application Support/husi/desktop-java-opts.conf` for JVM options
-* `~/Library/Application Support/husi/desktop-app-args.conf` for application startup arguments
+* `~/Library/Application Support/shiftvps/desktop-java-opts.conf` for JVM options
+* `~/Library/Application Support/shiftvps/desktop-app-args.conf` for application startup arguments
 
 Build Windows portable zip and NSIS installer packages:
 

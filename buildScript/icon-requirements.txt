@@ -1,0 +1,4 @@
+# Optional build-only fallback when rsvg-convert or ImageMagick are unavailable.
+# Install with: python3 -m pip install -r buildScript/icon-requirements.txt
+resvg-py==0.5.0
+Pillow==13.0.0
