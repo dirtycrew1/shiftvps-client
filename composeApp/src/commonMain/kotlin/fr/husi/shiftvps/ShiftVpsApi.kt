@@ -3,6 +3,7 @@ package fr.husi.shiftvps
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -111,12 +112,23 @@ internal class ShiftVpsApi(private val transport: ClientTransport = HttpsClientT
     }
 
     suspend fun token(grantId: String, verifier: String): String {
-        val response = request("POST", "/token", body = buildJsonObject {
+        val response = request("POST", "/device-token", body = buildJsonObject {
             put("grant_id", grantId)
             put("code_verifier", verifier)
         }.toString())
-        return clientJson.decodeFromString<ClientToken>(response).accessToken.also {
-            require(it.matches(Regex("[A-Za-z0-9_-]{32,256}")))
+        val result = try {
+            clientJson.decodeFromString<DeviceTokenResponse>(response)
+        } catch (_: SerializationException) {
+            throw ClientApiException("invalid_token_response")
+        }
+        when (result.state) {
+            "authorization_pending", "slow_down" -> {
+                if (result.accessToken != null) throw ClientApiException("invalid_token_response")
+                throw ClientApiException(result.state)
+            }
+            "issued" -> return result.accessToken?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{32,256}")) }
+                ?: throw ClientApiException("invalid_token_response")
+            else -> throw ClientApiException("invalid_token_response")
         }
     }
 

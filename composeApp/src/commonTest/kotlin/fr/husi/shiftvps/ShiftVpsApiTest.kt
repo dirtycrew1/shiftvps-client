@@ -3,6 +3,9 @@ package fr.husi.shiftvps
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.net.HttpURLConnection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -61,6 +64,134 @@ class ShiftVpsApiTest {
         val grant = api.authorize("android", "Fixture phone", verifierChallenge(createVerifier()))
         assertEquals(2, calls.size)
         assertTrue(grant.verificationUri.startsWith("https://web-backup.shiftvps.ru/"))
+    }
+
+    @Test
+    fun `device token waiting states use successful typed responses without issuing credentials`() = runTest {
+        for (state in listOf("authorization_pending", "slow_down")) {
+            val calls = mutableListOf<String>()
+            val api = ShiftVpsApi(object : ClientTransport {
+                override suspend fun request(method: String, url: String, token: String?, body: String?): ClientResponse {
+                    calls.add("$method $url")
+                    return ClientResponse(200, """{"state":"$state","interval":3}""")
+                }
+            })
+            val error = assertFailsWith<ClientApiException> { api.token("fixture-grant", createVerifier()) }
+            assertEquals(state, error.code)
+            assertEquals(listOf("POST https://shiftvps.ru/api/client/v1/device-token"), calls)
+        }
+    }
+
+    @Test
+    fun `device token requires an issued state and a valid credential`() = runTest {
+        val issued = "T".repeat(43)
+        val api = ShiftVpsApi(object : ClientTransport {
+            override suspend fun request(method: String, url: String, token: String?, body: String?) =
+                ClientResponse(200, """{"state":"issued","access_token":"$issued","token_type":"Bearer","expires_in":3600}""")
+        })
+        assertEquals(issued, api.token("fixture-grant", createVerifier()))
+    }
+
+    @Test
+    fun `waiting through approval reads normal HTTPS responses without the error stream`() = runTest {
+        val issued = "T".repeat(43)
+        val payloads = ArrayDeque(listOf(
+            """{"state":"authorization_pending","interval":3}""",
+            """{"state":"slow_down","interval":3}""",
+            """{"state":"issued","access_token":"$issued"}""",
+        ))
+        val paths = mutableListOf<String>()
+        val api = ShiftVpsApi(HttpsClientTransport { uri ->
+            paths.add(uri.path)
+            val payload = payloads.removeFirst()
+            object : HttpURLConnection(uri.toURL()) {
+                override fun getResponseCode() = 200
+                override fun getInputStream() = ByteArrayInputStream(payload.toByteArray())
+                override fun getErrorStream(): java.io.InputStream? = error("Waiting must not read the error stream")
+                override fun getOutputStream() = ByteArrayOutputStream()
+                override fun connect() = Unit
+                override fun disconnect() = Unit
+                override fun usingProxy() = false
+            }
+        })
+        assertEquals("authorization_pending", assertFailsWith<ClientApiException> {
+            api.token("fixture-grant", "fixture-verifier")
+        }.code)
+        assertEquals("slow_down", assertFailsWith<ClientApiException> {
+            api.token("fixture-grant", "fixture-verifier")
+        }.code)
+        assertEquals(issued, api.token("fixture-grant", "fixture-verifier"))
+        assertEquals(List(3) { "/api/client/v1/device-token" }, paths)
+        assertTrue(payloads.isEmpty())
+    }
+
+    @Test
+    fun `unknown mixed and malformed successful device token responses fail closed`() = runTest {
+        val credential = "T".repeat(43)
+        for (payload in listOf(
+            """{"access_token":"$credential"}""",
+            """{"state":"unknown","access_token":"$credential"}""",
+            """{"state":"authorization_pending","access_token":"$credential"}""",
+            """{"state":"slow_down","access_token":"$credential"}""",
+            """{"state":"issued"}""",
+            """{"state":"issued","access_token":"invalid"}""",
+            """{"state":{},"access_token":"$credential"}""",
+            """{"state":"issued","access_token":{}}""",
+            "not-json-$credential",
+        )) {
+            val api = ShiftVpsApi(object : ClientTransport {
+                override suspend fun request(method: String, url: String, token: String?, body: String?) =
+                    ClientResponse(200, payload)
+            })
+            val error = assertFailsWith<ClientApiException> { api.token("fixture-grant", createVerifier()) }
+            assertEquals("invalid_token_response", error.code)
+            assertFalse(error.message.orEmpty().contains(credential))
+        }
+    }
+
+    @Test
+    fun `terminal device token rejections retain their meaning and are never replayed`() = runTest {
+        for ((status, code) in listOf(400 to "invalid_grant", 403 to "access_denied",
+            403 to "subscription_expired", 409 to "device_limit")) {
+            val calls = mutableListOf<String>()
+            val api = ShiftVpsApi(object : ClientTransport {
+                override suspend fun request(method: String, url: String, token: String?, body: String?): ClientResponse {
+                    calls.add(url)
+                    return ClientResponse(status, """{"error":"$code"}""")
+                }
+            })
+            val error = assertFailsWith<ClientApiException> { api.token("fixture-grant", createVerifier()) }
+            assertEquals(code, error.code)
+            assertEquals(status, error.status)
+            assertEquals(listOf("https://shiftvps.ru/api/client/v1/device-token"), calls)
+        }
+    }
+
+    @Test
+    fun `login diagnostics contain only the stage a known category and HTTP status`() {
+        val sensitive = "fixture-private-value"
+        for ((error, code, status) in listOf(
+            Triple(java.io.IOException("https://private.invalid/$sensitive"), "NET", 0),
+            Triple(java.net.SocketTimeoutException(sensitive), "TIMEOUT", 0),
+            Triple(java.net.UnknownHostException(sensitive), "DNS", 0),
+            Triple(javax.net.ssl.SSLException(sensitive), "TLS", 0),
+            Triple(ClientApiException(sensitive, 400), "API", 400),
+            Triple(ClientApiException(sensitive, Int.MAX_VALUE), "API", 0),
+        )) {
+            val diagnostic = loginFailureDiagnostic(LoginStage.POLL, error)
+            assertEquals("L-P-$code-$status", diagnostic)
+            assertFalse(diagnostic.contains(sensitive))
+            assertFalse(diagnostic.contains("private.invalid"))
+        }
+        for ((error, code) in listOf(
+            java.security.KeyStoreException(sensitive) to "KEYSTORE",
+            java.security.UnrecoverableKeyException(sensitive) to "KEY_READ",
+            java.security.ProviderException(sensitive) to "PROVIDER",
+            java.io.FileNotFoundException(sensitive) to "FILE",
+            SecurityException(sensitive) to "PERMISSION",
+        )) {
+            assertEquals("L-S-$code-0", loginFailureDiagnostic(LoginStage.STORE, error))
+        }
     }
 
     @Test

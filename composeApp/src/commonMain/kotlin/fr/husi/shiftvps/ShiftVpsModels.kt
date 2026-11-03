@@ -135,8 +135,9 @@ internal data class DeviceAuthorization(
 )
 
 @Serializable
-internal data class ClientToken(
-    @SerialName("access_token") val accessToken: String,
+internal data class DeviceTokenResponse(
+    val state: String,
+    @SerialName("access_token") val accessToken: String? = null,
 )
 
 @Serializable

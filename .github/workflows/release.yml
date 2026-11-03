@@ -20,11 +20,25 @@ on:
         required: false
         default: false
         type: boolean
+      android-only:
+        description: Build only Android APK artifacts
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
 
 jobs:
+  validate-subset:
+    if: ${{ inputs.android-only && inputs.macos-only }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject conflicting build subsets
+        run: |
+          echo "::error::Choose only one of android-only and macos-only."
+          exit 1
+
   android:
     if: ${{ !inputs.macos-only }}
     runs-on: ubuntu-latest
@@ -84,6 +98,7 @@ jobs:
           compression-level: 9
 
   desktop:
+    if: ${{ !inputs.android-only }}
     name: desktop (${{ matrix.id }})
     # One cell per GOOS/GOARCH so ProGuard, jlink and libcore bind run in
     # parallel instead of stacking into a single ~50 minute job. Windows thin
@@ -229,7 +244,7 @@ jobs:
 
   publish:
     needs: [android, desktop]
-    if: ${{ !inputs.no-publish }}
+    if: ${{ !inputs.no-publish && !inputs.android-only && !inputs.macos-only }}
     runs-on: ubuntu-latest
     steps:
       - name: Download Android artifacts

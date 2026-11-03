@@ -194,6 +194,7 @@ class ShiftVpsController : AutoCloseable {
         loginJob = scope.launch {
             state.update { it.copy(loading = true, error = null) }
             val generation = sessionGeneration
+            var stage = LoginStage.AUTHORIZE
             try {
                 val verifier = createVerifier()
                 val grant = api.authorize(platform(), platformName(), verifierChallenge(verifier))
@@ -204,9 +205,11 @@ class ShiftVpsController : AutoCloseable {
                 while (System.currentTimeMillis() < deadline) {
                     delay(interval * 1000L)
                     try {
+                        stage = LoginStage.POLL
                         val token = api.token(grant.grantId, verifier)
                         tokenAccess.withLock {
                             if (sessionGeneration != generation) return@launch
+                            stage = LoginStage.STORE
                             tokens.save(token)
                             metricOwner = tokenOwner(token)
                         }
@@ -223,7 +226,11 @@ class ShiftVpsController : AutoCloseable {
                 }
                 state.update { it.copy(error = "Время входа истекло. Нажмите «Войти» ещё раз.") }
             } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                val diagnostic = loginFailureDiagnostic(stage, error)
+                Logs.w("ShiftVPS login failed: $diagnostic")
                 handleFailure(error)
+                state.update { it.copy(error = "${it.error.orEmpty()}\nКод: $diagnostic") }
             } finally {
                 state.update { it.copy(loading = false, authCode = null) }
             }
@@ -596,6 +603,33 @@ private fun platformName(): String = when (platform()) {
     "android" -> "ShiftVPS Android"
     "macos" -> "ShiftVPS Mac"
     else -> "ShiftVPS Windows"
+}
+
+internal enum class LoginStage { AUTHORIZE, POLL, STORE }
+
+internal fun loginFailureDiagnostic(stage: LoginStage, error: Exception): String {
+    val status = (error as? ClientApiException)?.status?.takeIf { it in 100..599 } ?: 0
+    val storage = if (stage == LoginStage.STORE) when (error.javaClass.simpleName) {
+        "KeyStoreException" -> "KEYSTORE"
+        "KeyPermanentlyInvalidatedException" -> "KEY_INVALID"
+        "UnrecoverableKeyException" -> "KEY_READ"
+        "UserNotAuthenticatedException" -> "KEY_AUTH"
+        "ProviderException" -> "PROVIDER"
+        "FileNotFoundException" -> "FILE"
+        "IOException" -> "IO"
+        "SecurityException" -> "PERMISSION"
+        else -> null
+    } else null
+    val reason = storage ?: when (diagnosticCode(error)) {
+        "timeout" -> "TIMEOUT"
+        "dns" -> "DNS"
+        "tls" -> "TLS"
+        "subscription_expired" -> "ACCESS"
+        "authentication" -> "AUTH"
+        "configuration" -> "API"
+        else -> "NET"
+    }
+    return "L-${stage.name.first()}-$reason-$status"
 }
 
 private fun diagnosticCode(error: Exception): String = when (error) {
