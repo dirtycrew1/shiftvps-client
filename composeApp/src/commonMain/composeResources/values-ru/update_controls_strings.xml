@@ -1,0 +1,8 @@
+<resources>
+    <string name="shiftvps_update_check_title">Приложение</string>
+    <string name="shiftvps_update_check_action">Проверить обновления</string>
+    <string name="shiftvps_update_check_running">Проверяем…</string>
+    <string name="shiftvps_update_check_current">Установлена последняя версия.</string>
+    <string name="shiftvps_update_check_failed">Не удалось проверить. Попробуйте ещё раз.</string>
+    <string name="shiftvps_update_check_external">Результат в отдельном окне.</string>
+</resources>

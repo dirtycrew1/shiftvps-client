@@ -93,6 +93,11 @@ open class DesktopRepository(
         coreHostController.reattachDaemon()
     }
 
+    suspend fun attachDaemonWhileStopped(): CoreHostState = coreHostController.attachDaemonWhileStopped()
+
+    val isServiceActiveForManagedConnect: Boolean
+        get() = coreHostController.serviceActive
+
     /**
      * Take over a daemon owned by another local user. See
      * [CoreHostController.takeOverDaemon].

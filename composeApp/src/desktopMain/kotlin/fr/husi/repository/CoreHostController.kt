@@ -48,6 +48,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.runInterruptible
@@ -72,6 +73,13 @@ data class DaemonOwner(
     val name: String,
     val id: String,
 )
+
+internal fun protectExistingDesktopService(local: ServiceState, reported: DaemonServiceStatus.Type?): Boolean =
+    local.canStop || local == ServiceState.Stopping || reported in setOf(
+        DaemonServiceStatus.Type.STARTED,
+        DaemonServiceStatus.Type.STARTING,
+        DaemonServiceStatus.Type.STOPPING,
+    )
 
 private enum class SessionTeardown {
     Graceful,
@@ -123,6 +131,8 @@ internal class CoreHostController(
     private var foreignOwner: DaemonOwner? = null
 
     private val coreStatus = MutableStateFlow<DaemonServiceStatus?>(null)
+    val serviceActive: Boolean
+        get() = protectExistingDesktopService(DataStore.serviceState, coreStatus.value?.status)
     private var coreStatusMirror: Job? = null
     private var daemonLease: Job? = null
 
@@ -248,6 +258,29 @@ internal class CoreHostController(
             ensureHostLocked()
             writeRootCertificatesLocked()
         }
+    }
+
+    /** Probe/attach while stopped, without restarting a service or falling back to an unprivileged host. */
+    suspend fun attachDaemonWhileStopped(): CoreHostState = access.withLock {
+        if (serviceActive) {
+            return@withLock hostState.value
+        }
+        if (connectedToDaemon) {
+            // Ending this client's lease may stop an unobserved running tunnel.
+            if (!hostReady || !probeHost()) throw IOException("Existing daemon control is temporarily unavailable")
+            refreshServiceStatusForManagedConnect()
+            return@withLock hostState.value
+        }
+        closeSessionLocked()
+        triedDaemon = true
+        if (tryAttachDaemonLocked()) refreshServiceStatusForManagedConnect()
+        publishHostState()
+        hostState.value
+    }
+
+    private suspend fun refreshServiceStatusForManagedConnect() {
+        // The normal mirror is asynchronous; a fresh first snapshot must precede manual start.
+        coreStatus.value = coreClient.subscribeServiceStatus().first()
     }
 
     /**

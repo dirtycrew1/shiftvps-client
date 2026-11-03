@@ -11,3 +11,7 @@ actual fun rememberVpnServiceLauncher(onFailed: () -> Unit): () -> Unit {
     }
     return { launcher.launch(null) }
 }
+
+@Composable
+actual fun rememberManagedVpnServiceLauncher(onFailed: () -> Unit): () -> Unit =
+    rememberVpnServiceLauncher(onFailed)

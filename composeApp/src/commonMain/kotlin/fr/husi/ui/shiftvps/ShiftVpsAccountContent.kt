@@ -35,12 +35,17 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import fr.husi.BuildConfig
 import fr.husi.compose.setPlainText
 import fr.husi.resources.*
 import fr.husi.shiftvps.ShiftVpsAccountSummary
 import fr.husi.shiftvps.ShiftVpsAccountDetails
 import fr.husi.shiftvps.ShiftVpsAccountActions
 import fr.husi.shiftvps.ShiftVpsUiState
+import fr.husi.shiftvps.ShiftVpsUpdateCheckPhase
+import fr.husi.shiftvps.ShiftVpsUpdatePhase
+import fr.husi.shiftvps.ShiftVpsUpdateState
+import fr.husi.shiftvps.canCheckApplicationUpdate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -60,6 +65,9 @@ internal fun ShiftVpsAccountContent(
     section: ShiftVpsAccountSection = ShiftVpsAccountSection.Overview,
     onSection: (ShiftVpsAccountSection) -> Unit = {},
     actions: ShiftVpsAccountActions? = null,
+    updateState: ShiftVpsUpdateState = ShiftVpsUpdateState(),
+    onCheckAppUpdate: () -> Unit = {},
+    onUpdate: () -> Unit = {},
 ) {
     val invitations = tab == ShiftVpsTab.Invitations
     val summary = state.summary
@@ -120,6 +128,7 @@ internal fun ShiftVpsAccountContent(
                     BrandButton(stringResource(Res.string.shiftvps_account_renew), { onSection(ShiftVpsAccountSection.Subscription) })
                 }
             }
+            item { ApplicationUpdateControls(updateState, onCheckAppUpdate, onUpdate) }
             item { AccountMenu(state, onSection) }
             item {
                 TextButton(onOpenAccount, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(top = 8.dp)) {
@@ -133,6 +142,44 @@ internal fun ShiftVpsAccountContent(
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+@Composable
+private fun ApplicationUpdateControls(state: ShiftVpsUpdateState, onCheck: () -> Unit, onUpdate: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        AccountPanel {
+            Column(Modifier.fillMaxWidth().padding(20.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(Res.string.shiftvps_update_check_title), style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f))
+                    Text(stringResource(Res.string.shiftvps_update_version, BuildConfig.VERSION_NAME),
+                        style = MaterialTheme.typography.bodyMedium, color = ShiftVpsPalette.Muted)
+                }
+                val result = when (state.checkPhase) {
+                    ShiftVpsUpdateCheckPhase.UpToDate -> Res.string.shiftvps_update_check_current
+                    ShiftVpsUpdateCheckPhase.Failed -> Res.string.shiftvps_update_check_failed
+                    ShiftVpsUpdateCheckPhase.ExternalDialog -> Res.string.shiftvps_update_check_external
+                    else -> null
+                }
+                result?.let {
+                    Text(stringResource(it), style = MaterialTheme.typography.bodyMedium,
+                        color = if (state.checkPhase == ShiftVpsUpdateCheckPhase.Failed) ShiftVpsPalette.Error else ShiftVpsPalette.Muted)
+                }
+                TextButton(onCheck, enabled = canCheckApplicationUpdate(state),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                    Text(stringResource(if (state.checkPhase == ShiftVpsUpdateCheckPhase.Checking) {
+                        Res.string.shiftvps_update_check_running
+                    } else Res.string.shiftvps_update_check_action))
+                }
+                if (state.checkPhase == ShiftVpsUpdateCheckPhase.Checking) {
+                    LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp), color = ShiftVpsPalette.Accent,
+                        trackColor = ShiftVpsPalette.Border)
+                }
+            }
+        }
+        if (state.phase != ShiftVpsUpdatePhase.Idle) UpdateBanner(state, onUpdate)
     }
 }
 

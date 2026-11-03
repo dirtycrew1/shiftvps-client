@@ -1,0 +1,8 @@
+<resources>
+    <string name="shiftvps_update_check_title">Application</string>
+    <string name="shiftvps_update_check_action">Check for updates</string>
+    <string name="shiftvps_update_check_running">Checking…</string>
+    <string name="shiftvps_update_check_current">You have the latest version.</string>
+    <string name="shiftvps_update_check_failed">Couldn’t check. Try again.</string>
+    <string name="shiftvps_update_check_external">See the result in the separate window.</string>
+</resources>

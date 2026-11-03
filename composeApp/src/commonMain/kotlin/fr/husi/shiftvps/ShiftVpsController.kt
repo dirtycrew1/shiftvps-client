@@ -73,6 +73,34 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
         /** Serializes a desktop installer with account verification and a queued connect action. */
         internal fun reserveApplicationUpdate(): AutoCloseable? =
             activeController.get()?.reserveUpdatePreparation()
+
+        /** Recheck the same manual request after a potentially long macOS administrator dialog. */
+        internal fun pendingDesktopConnectRequest(): DesktopConnectRequest? {
+            val controller = activeController.get() ?: return null
+            val generation = controller.sessionGeneration
+            val profileId = controller.selectedProfileId ?: return null
+            val requestId = controller.connectionRequestId ?: return null
+            val sameRequest = {
+                activeController.get() === controller && controller.sessionGeneration == generation &&
+                    controller.connectionRequestId === requestId && controller.connectionPending &&
+                    controller.selectedProfileId == profileId && controller.state.value.signedIn
+            }
+            val allowed = {
+                controller.state.value.accessState == ShiftVpsAccessState.Active &&
+                    controller.account?.let { runCatching { requireActiveAccount(it) }.isSuccess } == true
+            }
+            if (!sameRequest()) return null
+            return DesktopConnectRequest(sameRequest, allowed) finish@{ reason ->
+                val message = reason?.let { controller.repository.getString(desktopVpnSetupResource(it)) }
+                if (!sameRequest()) return@finish
+                controller.connectionPending = false
+                if (reason != null && allowed()) {
+                    controller.state.update { it.copy(error = message) }
+                    controller.metric("connect_failed", errorCode = desktopVpnSetupMetric(reason))
+                }
+                controller.publishProfiles()
+            }
+        }
     }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val api = ShiftVpsApi()
@@ -92,6 +120,7 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
     private var userSelectedServer = false
     private var selectedProfileId: Long? = null
     private var connectionPending = false
+    private var connectionRequestId: Any? = null
     private var profiles = emptyList<ProxyEntity>()
     private var groups = emptyList<ShiftVpsServerGroup>()
     private val measurements = mutableMapOf<Long, ServerCandidate>()
@@ -343,6 +372,7 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
             repository.stopService()
             return
         }
+        if (connectionPending) return
         if (state.value.accessState != ShiftVpsAccessState.Active) {
             state.update { it.copy(error = if (it.accessState == ShiftVpsAccessState.Inactive)
                 "Подписка не активна. Выберите тариф в аккаунте." else "Сначала обновите данные аккаунта.") }
@@ -375,6 +405,7 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
                 require(state.value.signedIn)
                 selectedProfileId = selected
                 connectionPending = true
+                connectionRequestId = Any()
                 DataStore.selectedProxy.set(selected)
                 DataStore.configurationStore.int("shiftvps.active_policy_version").set(policy.version)
                 if (generation != sessionGeneration || !state.value.signedIn) {

@@ -459,6 +459,88 @@ class ShiftVpsScreenSnapshotTest {
     }
 
     @Test
+    fun `account application check is explicit and never connects installs or stops vpn`() = runBlocking {
+        var checks = 0
+        var installs = 0
+        var connections = 0
+        withContext(Dispatchers.Swing) {
+            for ((device, width, height) in listOf(Triple("phone", 390, 844), Triple("desktop", 460, 760))) {
+                snapshot("account-application-check-$device", width, height,
+                    fixture().copy(summary = summaryFixture(), serviceState = ServiceState.Connected),
+                    onToggleConnection = { connections++ }, onCheckAppUpdate = { checks++ }, onUpdate = { installs++ },
+                    initialTab = ShiftVpsTab.Account) { scene ->
+                    val before = checks
+                    assertTrue(texts(scene).contains(getString(Res.string.shiftvps_update_check_action)))
+                    assertEquals(0, installs)
+                    assertEquals(0, connections)
+                    clickText(scene, getString(Res.string.shiftvps_update_check_action))
+                    assertEquals(before + 1, checks)
+                    for (tab in listOf(Res.string.shiftvps_tab_invitations, Res.string.shiftvps_tab_connection,
+                        Res.string.shiftvps_tab_account)) {
+                        clickText(scene, getString(tab)); settle(scene)
+                    }
+                    assertEquals(before + 1, checks)
+                    assertEquals(0, installs)
+                    assertEquals(0, connections)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `account application checking current error and native dialog results stay visible`() = runBlocking {
+        val cases = listOf(
+            Triple("checking", ShiftVpsUpdateCheckPhase.Checking, Res.string.shiftvps_update_check_running),
+            Triple("current", ShiftVpsUpdateCheckPhase.UpToDate, Res.string.shiftvps_update_check_current),
+            Triple("error", ShiftVpsUpdateCheckPhase.Failed, Res.string.shiftvps_update_check_failed),
+            Triple("native-dialog", ShiftVpsUpdateCheckPhase.ExternalDialog, Res.string.shiftvps_update_check_external),
+        )
+        withContext(Dispatchers.Swing) {
+            for ((name, phase, result) in cases) {
+                for ((device, width, height) in listOf(Triple("phone", 390, 844), Triple("desktop", 460, 760))) {
+                    snapshot("account-application-$name-$device", width, height, fixture().copy(summary = summaryFixture()),
+                        updateState = ShiftVpsUpdateState(checkPhase = phase), initialTab = ShiftVpsTab.Account) { scene ->
+                        assertTrue(texts(scene).contains(getString(result)))
+                        val label = textNode(scene, getString(if (phase == ShiftVpsUpdateCheckPhase.Checking) {
+                            Res.string.shiftvps_update_check_running
+                        } else Res.string.shiftvps_update_check_action))
+                        val button = buttons(scene).first { it.boundsInRoot.contains(label.boundsInRoot.center) }
+                        assertEquals(phase == ShiftVpsUpdateCheckPhase.Checking, SemanticsProperties.Disabled in button.config)
+                        assertFalse(texts(scene).contains(getString(Res.string.shiftvps_update_action)))
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `account application install remains a separate action and retains disconnect notice`() = runBlocking {
+        var checks = 0
+        var installs = 0
+        var connections = 0
+        withContext(Dispatchers.Swing) {
+            for (phase in listOf(ShiftVpsUpdatePhase.Available, ShiftVpsUpdatePhase.NeedsDisconnect)) {
+                snapshot("account-application-${phase.name.lowercase()}", 390, 844, fixture().copy(summary = summaryFixture()),
+                    updateState = ShiftVpsUpdateState(phase, "0.1.10"), initialTab = ShiftVpsTab.Account,
+                    onCheckAppUpdate = { checks++ }, onUpdate = { installs++ }, onToggleConnection = { connections++ }) { scene ->
+                    val label = textNode(scene, getString(Res.string.shiftvps_update_check_action))
+                    val button = buttons(scene).first { it.boundsInRoot.contains(label.boundsInRoot.center) }
+                    assertEquals(phase == ShiftVpsUpdatePhase.NeedsDisconnect, SemanticsProperties.Disabled in button.config)
+                    if (phase == ShiftVpsUpdatePhase.Available) {
+                        clickText(scene, getString(Res.string.shiftvps_update_action))
+                        assertEquals(1, installs)
+                    } else {
+                        assertTrue(texts(scene).contains(getString(Res.string.shiftvps_update_disconnect)))
+                        assertEquals(1, installs)
+                    }
+                    assertEquals(0, checks)
+                    assertEquals(0, connections)
+                }
+            }
+        }
+    }
+
+    @Test
     fun `inactive account buys a real plan through native tariffs without exposing vpn actions`() = runBlocking {
         val actions = RecordingAccountActions()
         withContext(Dispatchers.Swing) {
@@ -860,6 +942,8 @@ class ShiftVpsScreenSnapshotTest {
         browserError: Boolean = false,
         clipboard: Clipboard = MemoryClipboard(),
         onToggleConnection: () -> Unit = {},
+        onCheckAppUpdate: () -> Unit = {},
+        onUpdate: () -> Unit = {},
         density: Density = Density(1f),
         accountActions: ShiftVpsAccountActions? = null,
         initialTab: ShiftVpsTab = ShiftVpsTab.Connection,
@@ -883,6 +967,8 @@ class ShiftVpsScreenSnapshotTest {
                             onDismissError = {},
                             browserError = browserError,
                             updateState = updateState,
+                            onCheckAppUpdate = onCheckAppUpdate,
+                            onUpdate = onUpdate,
                             accountActions = accountActions,
                             initialTab = initialTab,
                             initialAccountSection = initialAccountSection,

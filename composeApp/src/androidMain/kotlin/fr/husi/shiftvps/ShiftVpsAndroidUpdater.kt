@@ -155,7 +155,11 @@ class ShiftVpsAndroidUpdater(context: Context) {
     private suspend fun checkUpdate() {
         if (state.value.phase in setOf(ShiftVpsUpdatePhase.Downloading, ShiftVpsUpdatePhase.Installing,
                 ShiftVpsUpdatePhase.NeedsPermission, ShiftVpsUpdatePhase.NeedsDisconnect)) return
-        if (BuildConfig.UPDATE_RSA_PUBLIC_KEY.isBlank() || BuildConfig.UPDATE_ANDROID_MANIFEST_URL.isBlank()) return
+        if (BuildConfig.UPDATE_RSA_PUBLIC_KEY.isBlank() || BuildConfig.UPDATE_ANDROID_MANIFEST_URL.isBlank()) {
+            mutableState.update { it.copy(checkPhase = ShiftVpsUpdateCheckPhase.Failed) }
+            return
+        }
+        mutableState.update { it.copy(checkPhase = ShiftVpsUpdateCheckPhase.Checking) }
         try {
             val verifier = SignedAndroidUpdateVerifier(BuildConfig.UPDATE_RSA_PUBLIC_KEY)
             val installed = installedIdentity()
@@ -174,7 +178,7 @@ class ShiftVpsAndroidUpdater(context: Context) {
                     availableUpdate = update
                     mutableState.value = update?.let {
                         ShiftVpsUpdateState(ShiftVpsUpdatePhase.Available, it.version)
-                    } ?: ShiftVpsUpdateState()
+                    } ?: ShiftVpsUpdateState(checkPhase = ShiftVpsUpdateCheckPhase.UpToDate)
                     return
                 } catch (e: CancellationException) {
                     throw e
@@ -187,6 +191,7 @@ class ShiftVpsAndroidUpdater(context: Context) {
             throw e
         } catch (_: Exception) {
             // Offline/background checks must not interrupt account login, VPN, or the last valid offer.
+            mutableState.update { it.copy(checkPhase = ShiftVpsUpdateCheckPhase.Failed) }
         }
     }
 

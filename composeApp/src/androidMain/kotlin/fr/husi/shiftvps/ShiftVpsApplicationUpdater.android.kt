@@ -9,6 +9,7 @@ actual fun platformShiftVpsApplicationUpdater(): ShiftVpsApplicationUpdater {
         override fun initialize() = updater.initialize()
         override fun onResume() = updater.onResume()
         override fun onPause() = updater.onPause()
+        override fun check() = updater.check()
         override fun install() = updater.install()
         override fun close() = updater.close()
     }

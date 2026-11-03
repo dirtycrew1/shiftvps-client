@@ -240,15 +240,20 @@ func newServiceCommand() *cobra.Command {
 
 func newServiceInstallCommand() *cobra.Command {
 	var workingDir string
+	var ifAbsent bool
 	command := &cobra.Command{
 		Use:   "install",
 		Short: "Install the system daemon service",
 		Args:  cobra.NoArgs,
 		RunE: func(*cobra.Command, []string) error {
+			if ifAbsent {
+				return daemonhost.ServiceInstallIfAbsent(workingDir)
+			}
 			return daemonhost.ServiceInstall(workingDir)
 		},
 	}
 	command.Flags().StringVar(&workingDir, "dir", "", "daemon working directory (default: platform-specific)")
+	command.Flags().BoolVar(&ifAbsent, "if-absent", false, "create the macOS service without replacing an existing installation")
 	return command
 }
 

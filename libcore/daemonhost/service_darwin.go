@@ -52,29 +52,7 @@ func ServiceInstall(workingDir string) error {
 	}
 	_ = exec.Command("xattr", "-d", "com.apple.quarantine", darwinInstallBin).Run()
 
-	socketPath := DefaultSocketPath()
-	plist := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>Label</key>
-	<string>%s</string>
-	<key>ProgramArguments</key>
-	<array>
-		<string>%s</string>
-		<string>run</string>
-		<string>--dir</string>
-		<string>%s</string>
-		<string>--socket</string>
-		<string>%s</string>
-	</array>
-	<key>RunAtLoad</key>
-	<true/>
-	<key>KeepAlive</key>
-	<true/>
-</dict>
-</plist>
-`, darwinServiceLabel, darwinInstallBin, absDir, socketPath)
+	plist := darwinServicePlist(absDir)
 
 	// bootout first so reinstall is idempotent.
 	_ = exec.Command("launchctl", "bootout", "system/"+darwinServiceLabel).Run()
@@ -162,4 +140,31 @@ func ServiceStatus() (*ServiceStatusResult, error) {
 		return &ServiceStatusResult{ExitCode: 0, Description: "running"}, nil
 	}
 	return &ServiceStatusResult{ExitCode: 2, Description: "stopped"}, nil
+}
+
+func darwinServicePlist(workingDir string) string {
+	socketPath := DefaultSocketPath()
+	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>%s</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>%s</string>
+		<string>run</string>
+		<string>--dir</string>
+		<string>%s</string>
+		<string>--socket</string>
+		<string>%s</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+</dict>
+</plist>
+`, darwinServiceLabel, darwinInstallBin, workingDir, socketPath)
+
 }

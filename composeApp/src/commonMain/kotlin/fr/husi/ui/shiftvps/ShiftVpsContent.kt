@@ -112,6 +112,7 @@ internal fun ShiftVpsScreen(
     browserError: Boolean = false,
     updateState: ShiftVpsUpdateState = ShiftVpsUpdateState(),
     onUpdate: () -> Unit = {},
+    onCheckAppUpdate: () -> Unit = {},
     onRefreshSummary: () -> Unit = {},
     onOpenAccount: () -> Unit = {},
     onOpenPayment: () -> Unit = {},
@@ -159,7 +160,7 @@ internal fun ShiftVpsScreen(
                                 onToggleConnection, onDismissError, onUpdate, Modifier.weight(1f))
                             else -> ShiftVpsAccountContent(state, selectedTab, onRefreshSummary, onOpenAccount,
                                 onOpenReferral, onLogout, Modifier.weight(1f), accountSection,
-                                { accountSection = it }, accountActions)
+                                { accountSection = it }, accountActions, updateState, onCheckAppUpdate, onUpdate)
                         }
                         ShiftVpsBottomNavigation(selectedTab, {
                             accountSection = ShiftVpsAccountSection.Overview
@@ -609,7 +610,7 @@ private fun ServerRow(server: ShiftVpsServer, selected: Boolean, enabled: Boolea
 }
 
 @Composable
-private fun UpdateBanner(state: ShiftVpsUpdateState, onUpdate: () -> Unit) {
+internal fun UpdateBanner(state: ShiftVpsUpdateState, onUpdate: () -> Unit) {
     val busy = state.phase == ShiftVpsUpdatePhase.Downloading || state.phase == ShiftVpsUpdatePhase.Installing
     val title = stringResource(when (state.phase) {
         ShiftVpsUpdatePhase.Downloading -> Res.string.shiftvps_update_downloading

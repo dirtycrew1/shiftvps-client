@@ -119,6 +119,17 @@ add_build_tag() {
     echo "$build_tags,$add_tag"
 }
 
+verify_darwin_first_run_setup() {
+    local build_tags="$1"
+    local host_arch
+    host_arch="$(go env GOHOSTARCH)"
+    # Tests must run on the runner's CPU, even while packaging the other CPU.
+    apply_darwin_toolchain_env "darwin/$host_arch"
+    CGO_ENABLED=1 GOOS=darwin GOARCH="$host_arch" go test -v -count=1 \
+        -tags="$build_tags" -ldflags="-checklinkname=0" \
+        -run '^(TestCreateOnly.*|TestPublishServiceFile.*|TestDarwinCreateOnly.*)$' ./daemonhost
+}
+
 apply_darwin_toolchain_env() {
     local desktop_target="$1"
     local host_platform
@@ -380,6 +391,9 @@ if [ "$BUILD_DESKTOP" == "1" ]; then
             # Besides Cronet, sing-box reads the system certificate store and DNS
             # configuration on Darwin only through cgo.
             desktop_cgo_enabled=1
+            if [ "$(go env GOHOSTOS)" == "darwin" ]; then
+                verify_darwin_first_run_setup "$local_build_tags"
+            fi
             apply_darwin_toolchain_env "$desktop_target"
         elif cronet_uses_purego "$desktop_platform" "$local_build_tags"; then
             local_build_tags="$(add_build_tag "$local_build_tags" "with_purego")"

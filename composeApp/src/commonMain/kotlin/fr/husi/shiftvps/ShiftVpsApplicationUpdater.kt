@@ -8,6 +8,7 @@ interface ShiftVpsApplicationUpdater {
     fun initialize()
     fun onResume()
     fun onPause()
+    fun check()
     fun install()
     fun close()
 }

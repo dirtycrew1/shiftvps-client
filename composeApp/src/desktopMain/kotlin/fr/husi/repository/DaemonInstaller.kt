@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit
  * osascript and powershell ship with their systems.
  */
 private const val PKEXEC = "pkexec"
-private const val OSASCRIPT = "osascript"
+private const val OSASCRIPT = "/usr/bin/osascript"
 private const val POWERSHELL = "powershell"
 
 /** The prompt waits on a human, so it is generous rather than snappy. */
@@ -50,6 +50,35 @@ suspend fun installDaemon(): DaemonInstallResult = runInterruptible(Dispatchers.
     }
 }
 
+internal enum class MacDaemonInstallation { Absent, PresentOrUnknown }
+
+/** A failed RPC is not evidence that the system service is missing. */
+internal suspend fun macDaemonInstallation(): MacDaemonInstallation = runInterruptible(Dispatchers.IO) {
+    val binary = resolveHusiCoreBinary() ?: return@runInterruptible MacDaemonInstallation.PresentOrUnknown
+    var process: Process? = null
+    try {
+        process = ProcessBuilder(binary.absolutePath, "service", "status")
+            .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+            .redirectError(ProcessBuilder.Redirect.DISCARD)
+            .start()
+        if (!process.waitFor(10, TimeUnit.SECONDS)) {
+            process.destroyForcibly()
+            return@runInterruptible MacDaemonInstallation.PresentOrUnknown
+        }
+        if (process.exitValue() == 3) MacDaemonInstallation.Absent else MacDaemonInstallation.PresentOrUnknown
+    } catch (_: Exception) {
+        MacDaemonInstallation.PresentOrUnknown
+    } finally {
+        if (process?.isAlive == true) process.destroyForcibly()
+    }
+}
+
+internal suspend fun installMacDaemonIfAbsent(): DaemonInstallResult = runInterruptible(Dispatchers.IO) {
+    val binary = resolveHusiCoreBinary()
+        ?: return@runInterruptible DaemonInstallResult.Failed("husi-core binary not found")
+    installDaemonMacOs(binary, ifAbsent = true)
+}
+
 private fun installDaemonLinux(binary: File): DaemonInstallResult {
     val command = listOf(PKEXEC, binary.absolutePath, "service", "install")
     Logs.i("daemon install: ${command.joinToString(" ")}")
@@ -75,15 +104,19 @@ private fun installDaemonLinux(binary: File): DaemonInstallResult {
     }
 }
 
-private fun installDaemonMacOs(binary: File): DaemonInstallResult {
-    val quotedBinary = posixSingleQuote(binary.absolutePath)
-    val shell = "$quotedBinary service install"
+internal fun macDaemonInstallCommand(binaryPath: String, ifAbsent: Boolean): List<String> {
+    val quotedBinary = posixSingleQuote(binaryPath)
+    val shell = "$quotedBinary service install" + if (ifAbsent) " --if-absent" else ""
     // AppleScript string literals only accept double quotes.
-    val command = listOf(
+    return listOf(
         OSASCRIPT,
         "-e",
         "do shell script ${appleScriptQuote(shell)} with administrator privileges",
     )
+}
+
+private fun installDaemonMacOs(binary: File, ifAbsent: Boolean = false): DaemonInstallResult {
+    val command = macDaemonInstallCommand(binary.absolutePath, ifAbsent)
     Logs.i("daemon install: osascript elevated service install (${binary.absolutePath})")
     val outcome = when (val elevation = runElevated(command)) {
         is ElevationOutcome.Unavailable -> return elevationUnavailable(elevation)

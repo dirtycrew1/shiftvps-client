@@ -60,7 +60,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.husi.bg.ServiceState
-import fr.husi.compose.rememberVpnServiceLauncher
+import fr.husi.compose.rememberManagedVpnServiceLauncher
 import fr.husi.permission.AppPermission
 import fr.husi.permission.LocalPermissionPlatform
 import fr.husi.resources.*
@@ -100,7 +100,7 @@ fun ShiftVpsMainScreen(modifier: Modifier = Modifier) {
     val uriHandler = LocalUriHandler.current
     val permission = LocalPermissionPlatform.current
     var browserError by remember { mutableStateOf(false) }
-    val launchVpn = rememberVpnServiceLauncher(controller::permissionDenied)
+    val launchVpn = rememberManagedVpnServiceLauncher(controller::permissionDenied)
     val currentLaunchVpn by rememberUpdatedState(launchVpn)
     LifecycleResumeEffect(controller) {
         controller.onForeground()
@@ -148,6 +148,7 @@ fun ShiftVpsMainScreen(modifier: Modifier = Modifier) {
             onDismissError = { browserError = false; controller.dismissError() },
             updateState = updateState,
             onUpdate = holder.updater::install,
+            onCheckAppUpdate = holder.updater::check,
             onRefreshSummary = controller::refreshSummary,
             onOpenAccount = controller::openAccount,
             onOpenPayment = controller::openPayment,
