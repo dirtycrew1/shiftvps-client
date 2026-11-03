@@ -20,6 +20,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,6 +38,8 @@ import androidx.compose.ui.unit.dp
 import fr.husi.compose.setPlainText
 import fr.husi.resources.*
 import fr.husi.shiftvps.ShiftVpsAccountSummary
+import fr.husi.shiftvps.ShiftVpsAccountDetails
+import fr.husi.shiftvps.ShiftVpsAccountActions
 import fr.husi.shiftvps.ShiftVpsUiState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -51,19 +54,30 @@ internal fun ShiftVpsAccountContent(
     tab: ShiftVpsTab,
     onRefresh: () -> Unit,
     onOpenAccount: () -> Unit,
-    onOpenPayment: () -> Unit,
     onOpenReferral: () -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier,
+    section: ShiftVpsAccountSection = ShiftVpsAccountSection.Overview,
+    onSection: (ShiftVpsAccountSection) -> Unit = {},
+    actions: ShiftVpsAccountActions? = null,
 ) {
     val invitations = tab == ShiftVpsTab.Invitations
     val summary = state.summary
+    val account = state.accountDetails?.account ?: summary?.account
+    LaunchedEffect(state.signedIn, tab) {
+        if (state.accountDetails == null && !state.accountDetailsLoading) actions?.refreshAccountDetails()
+    }
+    if ((!invitations && section != ShiftVpsAccountSection.Overview) || section == ShiftVpsAccountSection.Legacy) {
+        ShiftVpsAccountDetailsContent(state, section, { onSection(ShiftVpsAccountSection.Overview) }, actions, modifier)
+        return
+    }
     LazyColumn(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(if (invitations) Res.string.shiftvps_tab_invitations else Res.string.shiftvps_tab_account),
                     style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                TextButton(onRefresh, enabled = !state.summaryLoading, modifier = Modifier.heightIn(min = 48.dp)) {
+                TextButton({ onRefresh(); actions?.refreshAccountDetails() }, enabled = !state.summaryLoading && !state.accountDetailsLoading,
+                    modifier = Modifier.heightIn(min = 48.dp)) {
                     Text(stringResource(Res.string.shiftvps_refresh), style = MaterialTheme.typography.labelMedium)
                 }
             }
@@ -78,7 +92,7 @@ internal fun ShiftVpsAccountContent(
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             }
         }
-        if (summary == null) {
+        if ((invitations && summary == null) || (!invitations && account == null)) {
             item {
                 if (state.summaryLoading) SummaryLoading() else {
                     if (state.summaryError == null) {
@@ -91,15 +105,23 @@ internal fun ShiftVpsAccountContent(
                 }
             }
         } else if (invitations) {
-            item { InvitationSummary(summary, onOpenReferral) }
+            item { InvitationSummary(checkNotNull(summary), onOpenReferral) }
+            state.accountDetails?.legacyReferral?.let { legacy ->
+                if (legacy.balanceUsdt.toBigDecimalOrNull()?.signum() == 1 || legacy.payouts.isNotEmpty()) {
+                    item { AccountPanel { AccountDestination(stringResource(Res.string.shiftvps_account_legacy)) { onSection(ShiftVpsAccountSection.Legacy) } } }
+                }
+            }
         } else {
-            item { AccountSummary(summary) }
+            item { AccountSummary(checkNotNull(account)) }
         }
         if (!invitations) {
             item {
-                if (summary?.account?.isFree != true) {
-                    BrandButton(stringResource(Res.string.shiftvps_account_renew), onOpenPayment)
+                if (account?.isFree != true) {
+                    BrandButton(stringResource(Res.string.shiftvps_account_renew), { onSection(ShiftVpsAccountSection.Subscription) })
                 }
+            }
+            item { AccountMenu(state, onSection) }
+            item {
                 TextButton(onOpenAccount, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(top = 8.dp)) {
                     Text(stringResource(Res.string.shiftvps_account_browser), style = MaterialTheme.typography.labelMedium)
                 }
@@ -115,8 +137,7 @@ internal fun ShiftVpsAccountContent(
 }
 
 @Composable
-private fun AccountSummary(summary: ShiftVpsAccountSummary) {
-    val account = summary.account
+private fun AccountSummary(account: ShiftVpsAccountDetails) {
     Surface(color = ShiftVpsPalette.Card, shape = RoundedCornerShape(20.dp),
         border = BorderStroke(1.dp, ShiftVpsPalette.Border)) {
         Column(Modifier.fillMaxWidth().padding(20.dp)) {
@@ -128,16 +149,12 @@ private fun AccountSummary(summary: ShiftVpsAccountSummary) {
                     color = ShiftVpsPalette.Muted, modifier = Modifier.padding(top = 5.dp))
             }
             Spacer(Modifier.height(20.dp))
-            if (!account.isFree) {
-                AccountDetail(stringResource(Res.string.shiftvps_account_until),
-                    account.subscriptionExpiresAt?.let(::formatSubscriptionDate) ?: "—")
+            if (!account.isFree && account.subscriptionExpiresAt != null) {
+                AccountDetail(stringResource(Res.string.shiftvps_account_until), formatSubscriptionDate(account.subscriptionExpiresAt))
             }
             if (account.phone.isNotBlank()) {
                 AccountDetail(stringResource(Res.string.shiftvps_account_phone), account.phone)
             }
-            AccountDetail(stringResource(Res.string.shiftvps_account_devices),
-                stringResource(Res.string.shiftvps_account_device_count, account.devicesUsed, account.deviceLimit))
-            AccountDetail(stringResource(Res.string.shiftvps_account_this_device), summary.device.name)
         }
     }
 }
@@ -224,6 +241,6 @@ private fun SummaryLoading() {
     }
 }
 
-private fun formatSubscriptionDate(value: String): String = runCatching {
+internal fun formatSubscriptionDate(value: String): String = runCatching {
     DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date.from(OffsetDateTime.parse(value).toInstant()))
 }.getOrDefault(value.substringBefore('T'))

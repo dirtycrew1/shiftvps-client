@@ -53,6 +53,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.Serializable
 import org.koin.core.context.GlobalContext
 import java.io.File
 import java.net.SocketTimeoutException
@@ -61,9 +62,10 @@ import java.security.MessageDigest
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import java.util.UUID
 import javax.net.ssl.SSLException
 
-class ShiftVpsController : AutoCloseable {
+class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
     companion object {
         private const val MANAGED_GROUP = "ShiftVPS managed"
         private val activeController = java.util.concurrent.atomic.AtomicReference<ShiftVpsController?>()
@@ -101,12 +103,24 @@ class ShiftVpsController : AutoCloseable {
     private val cachedAccount = DataStore.configurationStore.string("shiftvps.account")
     private val cachedVerificationTime = DataStore.configurationStore.long("shiftvps.account_verified_at")
     private val cachedGroups = DataStore.configurationStore.string("shiftvps.server_groups")
+    private val cachedAccountIntents = DataStore.configurationStore.string("shiftvps.account_intents")
 
     val state: StateFlow<ShiftVpsUiState>
         field = MutableStateFlow(ShiftVpsUiState())
 
     private val eventQueue = Channel<ShiftVpsEvent>(Channel.BUFFERED)
     val events: Flow<ShiftVpsEvent> = eventQueue.receiveAsFlow()
+
+    private val accountCoordinator by lazy {
+        ShiftVpsAccountCoordinator(scope, api, state, ::accountIdentity, object : AccountIntentStore {
+            override suspend fun load(): String = cachedAccountIntents.get()
+            override suspend fun save(value: String) { cachedAccountIntents.set(value) }
+        }, openUrl = { eventQueue.send(ShiftVpsEvent.OpenBrowser(it)) }, invalidIdentity = { owner, error ->
+            scope.launch { if (owner.same(accountIdentity())) handleFailure(error) }
+        }, signOut = { owner ->
+            scope.launch { if (owner.same(accountIdentity())) logoutSession(notifyServer = false) }
+        })
+    }
 
     init {
         activeController.set(this)
@@ -154,8 +168,7 @@ class ShiftVpsController : AutoCloseable {
     fun onForeground() {
         if (foregroundJob?.isActive == true) {
             if (state.value.signedIn && state.value.authCode == null) {
-                scope.launch { surveySafely() }
-                scope.launch { syncAndProbe(false) }
+                scope.launch { accountCoordinator.refresh().join(); syncAndProbe(policy.latency.probeOnLaunch) }
             }
             return
         }
@@ -174,9 +187,8 @@ class ShiftVpsController : AutoCloseable {
                     selectedProfileId = DataStore.selectedProxy.get().takeIf { id -> profiles.any { it.id == id } }
                     state.update { it.copy(signedIn = true, accountName = account?.name.orEmpty(), loading = false) }
                     publishProfiles()
-                    val hadCachedProfiles = profiles.isNotEmpty()
-                    if (hadCachedProfiles && policy.latency.probeOnLaunch) scope.launch { surveySafely() }
-                    syncAndProbe(!hadCachedProfiles && policy.latency.probeOnLaunch)
+                    accountCoordinator.refresh().join()
+                    syncAndProbe(policy.latency.probeOnLaunch)
                 }
             } catch (error: Exception) {
                 handleFailure(error)
@@ -191,7 +203,7 @@ class ShiftVpsController : AutoCloseable {
     }
 
     fun signIn() {
-        if (loginJob?.isActive == true) return
+        if (state.value.signedIn || loginJob?.isActive == true) return
         loginJob = scope.launch {
             state.update { it.copy(loading = true, error = null) }
             val generation = sessionGeneration
@@ -207,14 +219,17 @@ class ShiftVpsController : AutoCloseable {
                     delay(interval * 1000L)
                     try {
                         stage = LoginStage.POLL
-                        val token = api.token(grant.grantId, verifier)
+                        val issued = api.identityToken(grant.grantId, verifier)
+                        val token = issued.token
                         tokenAccess.withLock {
                             if (sessionGeneration != generation) return@launch
                             stage = LoginStage.STORE
                             tokens.save(token)
                             metricOwner = tokenOwner(token)
                         }
-                        state.update { it.copy(authCode = null, signedIn = true, loading = true) }
+                        state.update { it.copy(authCode = null, signedIn = true, loading = true,
+                            accessState = accessState(issued.accessActive)) }
+                        accountCoordinator.refresh().join()
                         syncAndProbe(true)
                         return@launch
                     } catch (error: ClientApiException) {
@@ -256,7 +271,8 @@ class ShiftVpsController : AutoCloseable {
             try {
                 val summary = api.accountSummary(token)
                 if (!state.value.signedIn || summaryToken() != token) return@launch
-                state.update { it.copy(summary = summary, accountName = summary.account.name) }
+                state.update { it.copy(summary = summary, accountName = summary.account.name,
+                    accessState = accessState(summary.account.accessActive)) }
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
                 if (!state.value.signedIn || summaryToken() != token) return@launch
@@ -285,11 +301,33 @@ class ShiftVpsController : AutoCloseable {
         null
     }
 
+    private suspend fun accountIdentity(): AccountIdentity? {
+        val generation = sessionGeneration
+        val token = summaryToken() ?: return null
+        return if (generation == sessionGeneration) AccountIdentity(token, generation) else null
+    }
+
+    override fun refreshAccountDetails() { accountCoordinator.refreshAccountDetails(); refreshSummary() }
+    override fun addDevice(name: String) { accountCoordinator.addDevice(name) }
+    override fun renameDevice(deviceId: Long, name: String) { accountCoordinator.renameDevice(deviceId, name) }
+    override fun deleteDevice(deviceId: Long) { accountCoordinator.deleteDevice(deviceId) }
+    override fun changePassword(currentPassword: String, newPassword: String, confirmPassword: String) {
+        accountCoordinator.changePassword(currentPassword, newPassword, confirmPassword)
+    }
+    override fun unlinkTelegram() { accountCoordinator.unlinkTelegram() }
+    override fun createCheckout(planCode: String, paymentMethod: String) { accountCoordinator.createCheckout(planCode, paymentMethod) }
+    override fun requestLegacyPayout(network: String, wallet: String) { accountCoordinator.requestLegacyPayout(network, wallet) }
+    override fun reconcileAccountOperation(requestId: String) { accountCoordinator.reconcileAccountOperation(requestId) }
+    override fun openAccountLink(link: ShiftVpsAccountLink) { accountCoordinator.openAccountLink(link) }
+    override fun dismissAccountAction() { accountCoordinator.dismissAccountAction() }
+
     fun checkServers() {
+        if (state.value.accessState != ShiftVpsAccessState.Active) return
         scope.launch { surveySafely() }
     }
 
     fun selectServer(id: Long) {
+        if (state.value.accessState != ShiftVpsAccessState.Active) return
         if (state.value.serviceState.started || connectionPending) return
         val candidates = candidates()
         val row = serverClusters(candidates, groups).firstOrNull { it.id == id } ?: return
@@ -303,6 +341,11 @@ class ShiftVpsController : AutoCloseable {
     fun toggleConnection() {
         if (state.value.serviceState.canStop) {
             repository.stopService()
+            return
+        }
+        if (state.value.accessState != ShiftVpsAccessState.Active) {
+            state.update { it.copy(error = if (it.accessState == ShiftVpsAccessState.Inactive)
+                "Подписка не активна. Выберите тариф в аккаунте." else "Сначала обновите данные аккаунта.") }
             return
         }
         scope.launch {
@@ -353,9 +396,12 @@ class ShiftVpsController : AutoCloseable {
         metric("connect_failed", errorCode = "permission")
     }
 
-    fun logout() {
+    fun logout() { logoutSession(notifyServer = true) }
+
+    private fun logoutSession(notifyServer: Boolean) {
         sessionGeneration++
         summaryJob?.cancel()
+        accountCoordinator.reset()
         metricOwner = null
         metrics.clear()
         prepareServiceMetrics(null, policy.version)
@@ -363,7 +409,9 @@ class ShiftVpsController : AutoCloseable {
         connectionPending = false
         while (eventQueue.tryReceive().isSuccess) { /* Discard actions from the previous session. */ }
         state.update { it.copy(signedIn = false, servers = emptyList(), selectedId = null, authCode = null, loading = true,
-            summary = null, summaryLoading = false, summaryError = null) }
+            summary = null, summaryLoading = false, summaryError = null, accessState = ShiftVpsAccessState.Unknown,
+            accountDetails = null, accountDetailsLoading = false, accountDetailsError = null,
+            accountAction = ShiftVpsAccountActionState()) }
         repository.stopService()
         scope.launch {
             try {
@@ -387,7 +435,7 @@ class ShiftVpsController : AutoCloseable {
                     metrics.clear()
                     state.value = ShiftVpsUiState()
                 }
-                if (token != null) runCatching { api.logout(token) }
+                if (notifyServer && token != null) runCatching { api.logout(token) }
             } catch (error: Exception) {
                 handleFailure(error)
                 state.update { it.copy(loading = false) }
@@ -397,12 +445,21 @@ class ShiftVpsController : AutoCloseable {
 
     private suspend fun syncAndProbe(probe: Boolean) {
         if (!operation.tryLock()) return
-        refreshSummary()
         var shouldProbe = false
         val generation = sessionGeneration
         state.update { it.copy(refreshing = true) }
         try {
+            refreshSummary()
+            summaryJob?.join()
             val token = currentToken() ?: return
+            if (state.value.accessState != ShiftVpsAccessState.Active) {
+                if (state.value.accessState == ShiftVpsAccessState.Inactive &&
+                    (profiles.isNotEmpty() || state.value.serviceState.started || connectionPending)) {
+                    handleFailure(ClientApiException("subscription_expired", 403))
+                    accountCoordinator.refresh().join()
+                }
+                return
+            }
             val manifest = api.manifest(token, policy)
             requireActiveAccount(manifest.account)
             val parsed = withContext(Dispatchers.Default) { RawUpdater.parseRaw(api.feed(token)) }
@@ -444,12 +501,14 @@ class ShiftVpsController : AutoCloseable {
     }
 
     private suspend fun surveySafely() {
+        if (state.value.accessState != ShiftVpsAccessState.Active) return
         survey.withLock {
             try { probeProfiles() } catch (error: Exception) { handleFailure(error) }
         }
     }
 
     private suspend fun probeProfiles() = coroutineScope {
+        if (state.value.accessState != ShiftVpsAccessState.Active) return@coroutineScope
         if (profiles.isEmpty()) return@coroutineScope
         applyManagedPolicy(policy)
         profiles.forEach { profile ->
@@ -554,6 +613,8 @@ class ShiftVpsController : AutoCloseable {
         if (error is CancellationException) throw error
         if (error is ClientApiException && (error.status == 401 || error.code in setOf("subscription_expired", "device_deleted"))) {
             sessionGeneration++
+            summaryJob?.cancel()
+            accountCoordinator.reset()
             repository.stopService()
             clearManagedProfiles()
             profiles = emptyList()
@@ -572,7 +633,9 @@ class ShiftVpsController : AutoCloseable {
             if (error.status == 401) tokenAccess.withLock { tokens.clear() }
             state.update { it.copy(servers = emptyList(), selectedId = null, signedIn = error.status != 401,
                 summary = if (error.status == 401 || error.code == "device_deleted") null else it.summary,
-                summaryLoading = false) }
+                summaryLoading = false, accessState = if (error.status == 401) ShiftVpsAccessState.Unknown else ShiftVpsAccessState.Inactive,
+                accountDetails = if (error.status == 401 || error.code == "device_deleted") null else it.accountDetails,
+                accountDetailsLoading = false, accountAction = ShiftVpsAccountActionState()) }
         }
         val message = if (error is ClientApiException && error.code == "unsupported_transport") {
             "В подписке нет совместимых подключений. Обновите приложение или обратитесь в поддержку."
@@ -711,3 +774,322 @@ internal fun diagnosticServerId(profile: ProxyEntity): String {
     return MessageDigest.getInstance("SHA-256").digest(identity.toByteArray(Charsets.UTF_8))
         .joinToString("") { "%02x".format(it.toInt() and 255) }
 }
+
+internal class AccountIdentity(val token: String, val generation: Int) {
+    fun same(other: AccountIdentity?): Boolean = other != null && token == other.token && generation == other.generation
+    override fun toString(): String = "AccountIdentity"
+}
+
+internal interface AccountIntentStore {
+    suspend fun load(): String
+    suspend fun save(value: String)
+}
+
+@Serializable
+internal data class SavedAccountIntent(val accountId: Long, val kind: String, val requestId: String, val fingerprint: String)
+
+/** Account effects are isolated from the VPN repository and can be tested without launching a client. */
+internal class ShiftVpsAccountCoordinator(
+    private val scope: CoroutineScope,
+    private val api: ShiftVpsApi,
+    private val state: MutableStateFlow<ShiftVpsUiState>,
+    private val identity: suspend () -> AccountIdentity?,
+    private val intents: AccountIntentStore,
+    private val openUrl: suspend (String) -> Unit,
+    private val invalidIdentity: (AccountIdentity, ClientApiException) -> Unit,
+    private val signOut: (AccountIdentity) -> Unit,
+) : ShiftVpsAccountActions {
+    private val mutation = Mutex()
+    private var refreshJob: Job? = null
+    private var mutationJob: Job? = null
+    private var detailsIdentity: AccountIdentity? = null
+    private var revision = 0L
+    private val retryAllowed = mutableSetOf<String>()
+
+    override fun refreshAccountDetails() { refresh() }
+
+    internal fun refresh(): Job {
+        if (state.value.accountAction.busy) return scope.launch { }
+        refreshJob?.cancel()
+        val requestRevision = ++revision
+        return scope.launch {
+            val owner = identity() ?: return@launch
+            if (!owner.same(detailsIdentity)) state.update { it.copy(accountDetails = null) }
+            state.update { it.copy(accountDetailsLoading = true, accountDetailsError = null) }
+            try {
+                val details = api.accountDetails(owner.token)
+                if (!current(owner) || requestRevision != revision) return@launch
+                detailsIdentity = owner
+                state.update { it.copy(accountDetails = details, accountName = details.account.name,
+                    accessState = accessState(details.account.accessActive), accountDetailsError = null) }
+                try {
+                    val saved = savedIntents().firstOrNull { it.accountId == details.accountId }
+                    if (!current(owner) || requestRevision != revision) return@launch
+                    if (saved != null && state.value.accountAction.kind == null) state.update {
+                        it.copy(accountAction = ShiftVpsAccountActionState(actionKind(saved.kind),
+                            ShiftVpsAccountActionPhase.Uncertain, errorCode = "operation_unknown", requestId = saved.requestId))
+                    }
+                } catch (error: Exception) {
+                    if (error is CancellationException) throw error
+                    if (!current(owner) || requestRevision != revision) return@launch
+                    state.update { it.copy(accountAction = ShiftVpsAccountActionState(
+                        phase = ShiftVpsAccountActionPhase.Error, errorCode = "operation_state_unavailable")) }
+                }
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                if (!current(owner) || requestRevision != revision) return@launch
+                if (error is ClientApiException && error.status == 401) invalidIdentity(owner, error)
+                else state.update { it.copy(accountDetailsError = "account_details_unavailable") }
+            } finally {
+                if (current(owner) && requestRevision == revision) state.update { it.copy(accountDetailsLoading = false) }
+            }
+        }.also { refreshJob = it }
+    }
+
+    override fun addDevice(name: String) {
+        val normalized = runCatching { validDeviceName(name) }.getOrElse { inputError(); return }
+        mutate(ShiftVpsAccountActionKind.AddDevice, durableKind = "device_add", payload = normalized,
+            validate = { if (!it.capabilities.addDevice) throw ClientApiException("subscription_expired", 403) }) { token, requestId ->
+            MutationResult(operation = api.addDevice(token, normalized, requestId!!).operation)
+        }
+    }
+
+    override fun renameDevice(deviceId: Long, name: String) {
+        val normalized = runCatching { validDeviceName(name) }.getOrElse { inputError(); return }
+        mutate(ShiftVpsAccountActionKind.RenameDevice, deviceId,
+            validate = { require(it.devices.any { row -> row.id == deviceId }) }) { token, _ ->
+            api.renameDevice(token, deviceId, normalized)
+            MutationResult()
+        }
+    }
+
+    override fun deleteDevice(deviceId: Long) {
+        mutate(ShiftVpsAccountActionKind.DeleteDevice, deviceId,
+            validate = { require(it.devices.any { row -> row.id == deviceId }) }) { token, _ ->
+            val current = details().currentDeviceId
+            val response = api.deleteDevice(token, deviceId)
+            require(response.currentDeviceDeleted == (current == deviceId))
+            MutationResult(signOut = response.logoutRequired)
+        }
+    }
+
+    override fun changePassword(currentPassword: String, newPassword: String, confirmPassword: String) {
+        if (currentPassword.codePointCount(0, currentPassword.length) !in 1..256 ||
+            newPassword.codePointCount(0, newPassword.length) !in 12..256 || newPassword != confirmPassword) {
+            inputError(); return
+        }
+        mutate(ShiftVpsAccountActionKind.ChangePassword,
+            validate = { require(it.capabilities.changePassword) }) { token, _ ->
+            api.changePassword(token, currentPassword, newPassword, confirmPassword)
+            MutationResult(signOut = true)
+        }
+    }
+
+    override fun unlinkTelegram() {
+        mutate(ShiftVpsAccountActionKind.UnlinkTelegram,
+            validate = { require(it.capabilities.unlinkTelegram) }) { token, _ ->
+            api.unlinkTelegram(token)
+            MutationResult()
+        }
+    }
+
+    override fun createCheckout(planCode: String, paymentMethod: String) {
+        mutate(ShiftVpsAccountActionKind.Checkout, durableKind = "checkout", payload = "$planCode|$paymentMethod", validate = { account ->
+            require(account.capabilities.checkout && account.billing.onlineAvailable)
+            require(account.plans.any { it.code == planCode } && paymentMethod in account.billing.paymentMethods)
+        }) { token, requestId ->
+            MutationResult(operation = api.createCheckout(token, planCode, paymentMethod, requestId!!).operation)
+        }
+    }
+
+    override fun requestLegacyPayout(network: String, wallet: String) {
+        if (network !in setOf("TRC20", "ERC20") || !wallet.matches(Regex("[A-Za-z0-9]{20,80}"))) {
+            inputError(); return
+        }
+        mutate(ShiftVpsAccountActionKind.LegacyPayout, durableKind = "payout", payload = "$network|$wallet",
+            validate = { require(it.legacyReferral.canRequestPayout && !it.legacyReferral.hasPendingPayout) }) { token, requestId ->
+            MutationResult(operation = api.requestLegacyPayout(token, network, wallet, requestId!!).operation)
+        }
+    }
+
+    override fun reconcileAccountOperation(requestId: String) {
+        if (runCatching { requireRequestId(requestId) }.isFailure) { inputError(); return }
+        mutate(ShiftVpsAccountActionKind.Reconcile, suppliedRequestId = requestId) { token, _ ->
+            MutationResult(operation = api.accountOperation(token, requestId).operation)
+        }
+    }
+
+    private data class MutationResult(val operation: ShiftVpsOperation? = null, val signOut: Boolean = false)
+
+    private fun mutate(kind: ShiftVpsAccountActionKind, deviceId: Long? = null, durableKind: String? = null,
+        payload: String = "", suppliedRequestId: String? = null,
+        validate: (ShiftVpsFullAccount) -> Unit = {},
+        perform: suspend (String, String?) -> MutationResult) {
+        if (mutationJob?.isActive == true) return
+        if (state.value.accountAction.phase == ShiftVpsAccountActionPhase.Uncertain && kind != ShiftVpsAccountActionKind.Reconcile) return
+        mutationJob = scope.launch {
+            if (!mutation.tryLock()) return@launch
+            var owner: AccountIdentity? = null
+            var requestId = suppliedRequestId
+            var sent = false
+            try {
+                owner = identity() ?: throw ClientApiException("invalid_token", 401)
+                if (!owner.same(detailsIdentity) || !state.value.signedIn) throw ClientApiException("account_details_unavailable")
+                ++revision; refreshJob?.cancel()
+                state.update { it.copy(accountDetailsLoading = false, accountAction = ShiftVpsAccountActionState(
+                    kind, ShiftVpsAccountActionPhase.Running, deviceId, requestId = requestId)) }
+                validate(details())
+                if (durableKind != null) {
+                    val account = details()
+                    val saved = savedIntents()
+                    val previous = saved.firstOrNull { it.accountId == account.accountId && it.kind == durableKind }
+                    val serverPending = account.pendingOperations.firstOrNull { it.kind == durableKind && !terminal(it) }
+                    val fingerprint = fingerprint("$durableKind|$payload")
+                    if (previous != null) {
+                        requestId = previous.requestId
+                        if (requestId !in retryAllowed || previous.fingerprint != fingerprint) throw ClientApiException("operation_pending")
+                        retryAllowed.remove(requestId)
+                    } else if (serverPending != null) {
+                        requestId = serverPending.requestId
+                        throw ClientApiException("operation_pending")
+                    } else {
+                        requestId = UUID.randomUUID().toString()
+                        require(saved.size < 30)
+                        saveIntents(saved + SavedAccountIntent(account.accountId, durableKind, requestId, fingerprint))
+                    }
+                }
+                if (!current(owner)) return@launch
+                state.update { it.copy(accountAction = it.accountAction.copy(requestId = requestId)) }
+                sent = true
+                val result = perform(owner.token, requestId)
+                if (!current(owner)) return@launch
+                if (result.signOut) {
+                    state.update { it.copy(accountAction = it.accountAction.copy(phase = ShiftVpsAccountActionPhase.Success)) }
+                    signOut(owner)
+                    return@launch
+                }
+                val operation = result.operation
+                if (operation != null) {
+                    require(operation.requestId == requestId)
+                    applyOperation(operation)
+                    if (terminal(operation)) removeIntent(operation.requestId)
+                    val uncertain = !terminal(operation) && (operation.state in setOf("pending", "unknown") ||
+                        operation.kind == "checkout" && operation.checkoutStatus == "unknown")
+                    val resultKind = if (operation.kind == "checkout" && !terminal(operation)) ShiftVpsAccountActionKind.Checkout else kind
+                    state.update { it.copy(accountAction = ShiftVpsAccountActionState(resultKind,
+                        if (uncertain) ShiftVpsAccountActionPhase.Uncertain else if (operation.state == "failed" &&
+                            !(operation.kind == "checkout" && terminal(operation))) ShiftVpsAccountActionPhase.Error else ShiftVpsAccountActionPhase.Success,
+                        deviceId, if (uncertain) "operation_${operation.state}" else operation.error, operation.requestId)) }
+                    if (!uncertain && operation.kind == "checkout" && operation.checkoutStatus == "created" &&
+                        !details().account.isFree && details().capabilities.checkout) {
+                        operation.checkoutUrl?.let { if (current(owner)) openUrl(it) }
+                    }
+                } else state.update { it.copy(accountAction = it.accountAction.copy(phase = ShiftVpsAccountActionPhase.Success)) }
+                refresh()
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                if (owner != null && !current(owner)) return@launch
+                if (error is ClientApiException && error.status == 401 && owner != null) {
+                    invalidIdentity(owner, error)
+                } else {
+                    val notFound = kind == ShiftVpsAccountActionKind.Reconcile && error is ClientApiException && error.code == "operation_not_found"
+                    if (notFound && requestId != null) retryAllowed.add(requestId)
+                    val uncertain = !notFound && (error is ClientApiException && error.code == "operation_pending" ||
+                        sent && (error !is ClientApiException || error.status == 0 || error.status >= 500))
+                    var code = if (uncertain) "operation_unknown" else safeCode(error)
+                    if (!uncertain && durableKind != null && requestId != null && error is ClientApiException && error.status in 400..499) {
+                        try { removeIntent(requestId) } catch (storage: Exception) {
+                            if (storage is CancellationException) throw storage
+                            code = "operation_state_unavailable"
+                        }
+                    }
+                    state.update { it.copy(accountAction = ShiftVpsAccountActionState(kind,
+                        if (uncertain) ShiftVpsAccountActionPhase.Uncertain else ShiftVpsAccountActionPhase.Error,
+                        deviceId, code, requestId)) }
+                }
+            } finally { mutation.unlock() }
+        }
+    }
+
+    override fun openAccountLink(link: ShiftVpsAccountLink) {
+        scope.launch {
+            val owner = identity() ?: return@launch
+            val account = state.value.accountDetails
+            val url = when (link) {
+                ShiftVpsAccountLink.TelegramLink -> TELEGRAM_LINK_PAGE
+                ShiftVpsAccountLink.ManualPayment -> PAYMENT_PAGE
+                ShiftVpsAccountLink.LegacySettlement -> REFERRAL_PAGE
+                ShiftVpsAccountLink.Privacy -> "https://shiftvps.ru/privacy"
+                ShiftVpsAccountLink.Terms -> "https://shiftvps.ru/terms"
+                ShiftVpsAccountLink.SupportEmail -> account?.support?.email?.let { "mailto:$it" }
+                ShiftVpsAccountLink.SupportTelegram -> account?.support?.telegramUrl
+                ShiftVpsAccountLink.Windows -> account?.downloads?.windows
+                ShiftVpsAccountLink.Android -> account?.downloads?.android
+                ShiftVpsAccountLink.MacArm64 -> account?.downloads?.macosArm64
+                ShiftVpsAccountLink.MacAmd64 -> account?.downloads?.macosAmd64
+            }
+            if (url != null && current(owner)) openUrl(url)
+        }
+    }
+
+    override fun dismissAccountAction() {
+        val action = state.value.accountAction
+        if (!action.busy && action.phase != ShiftVpsAccountActionPhase.Uncertain &&
+            !(action.kind == ShiftVpsAccountActionKind.Checkout && action.requestId != null)) {
+            state.update { it.copy(accountAction = ShiftVpsAccountActionState()) }
+        }
+    }
+
+    fun reset() { ++revision; refreshJob?.cancel(); mutationJob?.cancel(); detailsIdentity = null; retryAllowed.clear() }
+
+    private fun inputError() {
+        if (!state.value.accountAction.busy && state.value.accountAction.phase != ShiftVpsAccountActionPhase.Uncertain) state.update { it.copy(accountAction = ShiftVpsAccountActionState(
+            phase = ShiftVpsAccountActionPhase.Error, errorCode = "invalid_request")) }
+    }
+
+    private suspend fun current(owner: AccountIdentity): Boolean = owner.same(identity()) && state.value.signedIn
+    private fun details(): ShiftVpsFullAccount = state.value.accountDetails ?: throw ClientApiException("account_details_unavailable")
+    private suspend fun savedIntents(): List<SavedAccountIntent> = try {
+        val raw = intents.load()
+        require(raw.length <= 32768)
+        if (raw.isBlank()) emptyList() else clientJson.decodeFromString<List<SavedAccountIntent>>(raw).also { saved ->
+            require(saved.size <= 30 && saved.map { it.requestId }.distinct().size == saved.size)
+            saved.forEach {
+                require(it.accountId > 0 && it.kind in setOf("device_add", "checkout", "payout"))
+                requireRequestId(it.requestId)
+                require(it.fingerprint.matches(Regex("[a-f0-9]{64}")))
+            }
+        }
+    } catch (error: Exception) {
+        if (error is CancellationException) throw error
+        throw ClientApiException("operation_state_unavailable")
+    }
+    private suspend fun saveIntents(value: List<SavedAccountIntent>) {
+        try { intents.save(clientJson.encodeToString(ListSerializer(SavedAccountIntent.serializer()), value)) }
+        catch (error: Exception) {
+            if (error is CancellationException) throw error
+            throw ClientApiException("operation_state_unavailable")
+        }
+    }
+    private suspend fun removeIntent(requestId: String) { saveIntents(savedIntents().filterNot { it.requestId == requestId }) }
+    private fun applyOperation(operation: ShiftVpsOperation) {
+        state.update { current -> current.copy(accountDetails = current.accountDetails?.let {
+            it.copy(pendingOperations = it.pendingOperations.filterNot { existing -> existing.requestId == operation.requestId } +
+                if (terminal(operation)) emptyList() else listOf(operation))
+        }) }
+    }
+    private fun terminal(operation: ShiftVpsOperation): Boolean = if (operation.kind == "checkout")
+        operation.checkoutStatus in setOf("paid", "canceled", "refunded", "chargeback")
+    else operation.state in setOf("complete", "failed")
+    private fun actionKind(kind: String) = when (kind) {
+        "device_add" -> ShiftVpsAccountActionKind.AddDevice
+        "payout" -> ShiftVpsAccountActionKind.LegacyPayout
+        else -> ShiftVpsAccountActionKind.Checkout
+    }
+    private fun safeCode(error: Exception): String = if (error is ClientApiException) error.code else "invalid_request"
+    private fun fingerprint(value: String): String = MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
+        .joinToString("") { "%02x".format(it.toInt() and 255) }
+}
+
+internal fun accessState(active: Boolean): ShiftVpsAccessState =
+    if (active) ShiftVpsAccessState.Active else ShiftVpsAccessState.Inactive

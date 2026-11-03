@@ -256,5 +256,17 @@ Application icons use the outlined `SHIFT` / `VPS` text wordmark and a compact `
 - Don't restore the removed .ru routing caption; its removal does not change the centrally managed DIRECT policy.
 - Don't infer a country from a server label or hostname, or depend on flag emoji support.
 - Don't invent latency, availability, signal strength or performance graphics.
-- Don't add protocol editors, unmanaged imports, animated halos or glass treatments to this simple client.
+- Don't add protocol editors, unmanaged imports or animated halos. Keep the requested glass treatment limited to the bottom navigation.
 - Don't treat a raster fixture as proof of real-device connectivity, large-font behavior or OS accessibility.
+
+## November 3: bottom navigation and full account
+
+The latest brief replaces the upper tabs with a floating dark glass dock. The three tabs remain Connection, Account and Invitations. Its selected pill moves over 240 ms, follows the platform animation scale, and has native press and focus feedback. The dock occupies its own layout space rather than covering content or the connect action.
+
+Account contains native subscription and payment choices, devices, payment history, Telegram, password changes and support. Keep the overview compact: device quota belongs in the Devices row and the current-device badge belongs in the device list. Use short nested views for each action. The bank checkout and official Telegram authorization open in the browser.
+
+An unpaid account can sign in to manage billing. Its connection view offers tariffs and cannot start or probe a VPN. Identity-only access does not grant VPN entitlement. A running connection retains an explicit disconnect action. Lifetime access hides payment actions, including a previously prepared checkout. Telegram-only accounts must retain their sole sign-in method and must not display an unusable current-password form.
+
+Invitations retain the fixed 30-day first-payment reward and its refund reversal. Historical USDT balances and manual payout requests appear only when relevant; they do not restore the reward-model chooser. Monetary history preserves currency precision. Unknown device traffic and online status stay unknown.
+
+The current gallery contains 122 actual pure Compose renders: 61 states at phone and desktop sizes. Fixture data is labelled outside the application. Navigation motion previews use captured native frames. These checks execute no application controller, VPN core, updater or installer; physical device behavior is checked separately.

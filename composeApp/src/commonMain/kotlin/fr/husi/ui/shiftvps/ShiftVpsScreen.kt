@@ -152,6 +152,7 @@ fun ShiftVpsMainScreen(modifier: Modifier = Modifier) {
             onOpenAccount = controller::openAccount,
             onOpenPayment = controller::openPayment,
             onOpenReferral = controller::openReferral,
+            accountActions = controller,
         )
         MainScreenAuthChallengeDialogs(onDismissed = controller::permissionDenied)
     }

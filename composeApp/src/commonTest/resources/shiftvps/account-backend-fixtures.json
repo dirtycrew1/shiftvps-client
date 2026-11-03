@@ -1,0 +1,405 @@
+{
+  "notice": "Demonstration identities and dummy provider URLs only. No bearer, cookies, grants, provider IDs or real checkout credentials are included.",
+  "details_phone_account": {
+    "account": {
+      "access_active": true,
+      "device_limit": 3,
+      "devices_used": 1,
+      "is_free": false,
+      "name": "Native fixture",
+      "phone": "+79009990001",
+      "subscription_expires_at": "2099-01-01T00:00:00"
+    },
+    "account_id": 1,
+    "billing": {
+      "browser_url": "https://shiftvps.ru/pay",
+      "checkout_hosts": [
+        "pay.rollypay.io"
+      ],
+      "online_available": true,
+      "payment_methods": [
+        "sbp",
+        "card"
+      ]
+    },
+    "capabilities": {
+      "add_device": true,
+      "change_password": true,
+      "checkout": true,
+      "unlink_telegram": false
+    },
+    "current_device_id": 1,
+    "devices": [
+      {
+        "id": 1,
+        "is_current": true,
+        "last_seen_at": null,
+        "name": "Phone",
+        "online": null,
+        "provisioning": false,
+        "status_source": "unknown",
+        "traffic_bytes": null
+      }
+    ],
+    "downloads": {
+      "android": "https://shiftvps.ru/downloads/shiftvps-0.1.6-arm64-v8a.apk",
+      "macos_amd64": "https://shiftvps.ru/downloads/shiftvps-0.1.5-macos-amd64.dmg",
+      "macos_arm64": "https://shiftvps.ru/downloads/shiftvps-0.1.5-macos-arm64.dmg",
+      "windows": "https://shiftvps.ru/downloads/shiftvps-0.1.5-windows-x64-setup.exe"
+    },
+    "legacy_referral": {
+      "balance_usdt": "0.00",
+      "can_request_payout": false,
+      "has_pending_payout": false,
+      "payout_min_usdt": "50.00",
+      "payouts": [],
+      "settlement_url": "https://shiftvps.ru/referral"
+    },
+    "payments": [],
+    "pending_operations": [],
+    "plans": [
+      {
+        "code": "month",
+        "currency": "RUB",
+        "days": 30,
+        "price_rub": 199,
+        "title": "1 месяц"
+      },
+      {
+        "code": "quarter",
+        "currency": "RUB",
+        "days": 90,
+        "price_rub": 399,
+        "title": "3 месяца"
+      },
+      {
+        "code": "year",
+        "currency": "RUB",
+        "days": 365,
+        "price_rub": 1200,
+        "title": "12 месяцев"
+      }
+    ],
+    "schema_version": 1,
+    "support": {
+      "email": "support@shiftvps.ru",
+      "privacy_url": "https://shiftvps.ru/privacy",
+      "telegram_url": "https://t.me/fixture_bot",
+      "terms_url": "https://shiftvps.ru/terms"
+    },
+    "telegram": {
+      "can_unlink": false,
+      "link_url": "https://shiftvps.ru/dashboard#telegram",
+      "linked": false,
+      "trial_available": true,
+      "trial_days": 3,
+      "username": null
+    }
+  },
+  "checkout_created": {
+    "device": null,
+    "operation": {
+      "checkout_status": "created",
+      "checkout_url": "https://pay.rollypay.io/pay/fixture-never-real",
+      "device_id": null,
+      "error": null,
+      "kind": "checkout",
+      "payout_id": null,
+      "request_id": "fixture-export-checkout-0001",
+      "state": "complete"
+    }
+  },
+  "checkout_paid": {
+    "device": null,
+    "operation": {
+      "checkout_status": "paid",
+      "checkout_url": "https://pay.rollypay.io/pay/fixture-never-real",
+      "device_id": null,
+      "error": null,
+      "kind": "checkout",
+      "payout_id": null,
+      "request_id": "fixture-export-checkout-0001",
+      "state": "complete"
+    }
+  },
+  "checkout_unknown": {
+    "device": null,
+    "operation": {
+      "checkout_status": "unknown",
+      "checkout_url": null,
+      "device_id": null,
+      "error": "checkout_uncertain",
+      "kind": "checkout",
+      "payout_id": null,
+      "request_id": "fixture-export-checkout-0002",
+      "state": "unknown"
+    }
+  },
+  "metadata_device_added": {
+    "device": {
+      "id": 2,
+      "is_current": false,
+      "last_seen_at": null,
+      "name": "Fixture tablet",
+      "online": null,
+      "provisioning": true,
+      "status_source": "unknown",
+      "traffic_bytes": null
+    },
+    "operation": {
+      "checkout_status": null,
+      "checkout_url": null,
+      "device_id": 2,
+      "error": null,
+      "kind": "device_add",
+      "payout_id": null,
+      "request_id": "fixture-export-device-0001",
+      "state": "complete"
+    }
+  },
+  "details_telegram_only": {
+    "account": {
+      "access_active": true,
+      "device_limit": 3,
+      "devices_used": 2,
+      "is_free": false,
+      "name": "Native fixture",
+      "phone": "",
+      "subscription_expires_at": "2099-01-31T00:00:00"
+    },
+    "account_id": 1,
+    "billing": {
+      "browser_url": "https://shiftvps.ru/pay",
+      "checkout_hosts": [
+        "pay.rollypay.io"
+      ],
+      "online_available": false,
+      "payment_methods": [
+        "sbp",
+        "card"
+      ]
+    },
+    "capabilities": {
+      "add_device": true,
+      "change_password": false,
+      "checkout": false,
+      "unlink_telegram": false
+    },
+    "current_device_id": 1,
+    "devices": [
+      {
+        "id": 1,
+        "is_current": true,
+        "last_seen_at": null,
+        "name": "Phone",
+        "online": null,
+        "provisioning": false,
+        "status_source": "unknown",
+        "traffic_bytes": null
+      },
+      {
+        "id": 2,
+        "is_current": false,
+        "last_seen_at": null,
+        "name": "Fixture tablet",
+        "online": null,
+        "provisioning": true,
+        "status_source": "unknown",
+        "traffic_bytes": null
+      }
+    ],
+    "downloads": {
+      "android": "https://shiftvps.ru/downloads/shiftvps-0.1.6-arm64-v8a.apk",
+      "macos_amd64": "https://shiftvps.ru/downloads/shiftvps-0.1.5-macos-amd64.dmg",
+      "macos_arm64": "https://shiftvps.ru/downloads/shiftvps-0.1.5-macos-arm64.dmg",
+      "windows": "https://shiftvps.ru/downloads/shiftvps-0.1.5-windows-x64-setup.exe"
+    },
+    "legacy_referral": {
+      "balance_usdt": "0.00",
+      "can_request_payout": false,
+      "has_pending_payout": false,
+      "payout_min_usdt": "50.00",
+      "payouts": [],
+      "settlement_url": "https://shiftvps.ru/referral"
+    },
+    "payments": [
+      {
+        "amount_rub": "199.00",
+        "days": 30,
+        "id": 1,
+        "paid_at": "2026-11-03T11:53:43",
+        "plan_code": "month",
+        "plan_title": "1 месяц",
+        "status": "paid"
+      }
+    ],
+    "pending_operations": [
+      {
+        "checkout_status": "unknown",
+        "checkout_url": null,
+        "device_id": null,
+        "error": "checkout_uncertain",
+        "kind": "checkout",
+        "payout_id": null,
+        "request_id": "fixture-export-checkout-0002",
+        "state": "unknown"
+      }
+    ],
+    "plans": [
+      {
+        "code": "month",
+        "currency": "RUB",
+        "days": 30,
+        "price_rub": 199,
+        "title": "1 месяц"
+      },
+      {
+        "code": "quarter",
+        "currency": "RUB",
+        "days": 90,
+        "price_rub": 399,
+        "title": "3 месяца"
+      },
+      {
+        "code": "year",
+        "currency": "RUB",
+        "days": 365,
+        "price_rub": 1200,
+        "title": "12 месяцев"
+      }
+    ],
+    "schema_version": 1,
+    "support": {
+      "email": "support@shiftvps.ru",
+      "privacy_url": "https://shiftvps.ru/privacy",
+      "telegram_url": "https://t.me/fixture_bot",
+      "terms_url": "https://shiftvps.ru/terms"
+    },
+    "telegram": {
+      "can_unlink": false,
+      "link_url": "https://shiftvps.ru/dashboard#telegram",
+      "linked": true,
+      "trial_available": false,
+      "trial_days": 3,
+      "username": "fixture_user"
+    }
+  },
+  "telegram_required": {
+    "error": "telegram_required"
+  },
+  "password_changed": {
+    "logout_required": true,
+    "password_changed": true
+  },
+  "current_device_deleted": {
+    "current_device_deleted": true,
+    "deleted_id": 1,
+    "logout_required": true
+  },
+  "details_unpaid_metadata_account": {
+    "account": {
+      "access_active": false,
+      "device_limit": 3,
+      "devices_used": 2,
+      "is_free": false,
+      "name": "Native fixture",
+      "phone": "+79009990001",
+      "subscription_expires_at": null
+    },
+    "account_id": 1,
+    "billing": {
+      "browser_url": "https://shiftvps.ru/pay",
+      "checkout_hosts": [
+        "pay.rollypay.io"
+      ],
+      "online_available": false,
+      "payment_methods": [
+        "sbp",
+        "card"
+      ]
+    },
+    "capabilities": {
+      "add_device": false,
+      "change_password": true,
+      "checkout": false,
+      "unlink_telegram": false
+    },
+    "current_device_id": 2,
+    "devices": [
+      {
+        "id": 1,
+        "is_current": false,
+        "last_seen_at": null,
+        "name": "Phone",
+        "online": null,
+        "provisioning": false,
+        "status_source": "unknown",
+        "traffic_bytes": null
+      },
+      {
+        "id": 2,
+        "is_current": true,
+        "last_seen_at": null,
+        "name": "Fixture account device",
+        "online": null,
+        "provisioning": false,
+        "status_source": "unknown",
+        "traffic_bytes": null
+      }
+    ],
+    "downloads": {
+      "android": "https://shiftvps.ru/downloads/shiftvps-0.1.6-arm64-v8a.apk",
+      "macos_amd64": "https://shiftvps.ru/downloads/shiftvps-0.1.5-macos-amd64.dmg",
+      "macos_arm64": "https://shiftvps.ru/downloads/shiftvps-0.1.5-macos-arm64.dmg",
+      "windows": "https://shiftvps.ru/downloads/shiftvps-0.1.5-windows-x64-setup.exe"
+    },
+    "legacy_referral": {
+      "balance_usdt": "0.00",
+      "can_request_payout": false,
+      "has_pending_payout": false,
+      "payout_min_usdt": "50.00",
+      "payouts": [],
+      "settlement_url": "https://shiftvps.ru/referral"
+    },
+    "payments": [],
+    "pending_operations": [],
+    "plans": [
+      {
+        "code": "month",
+        "currency": "RUB",
+        "days": 30,
+        "price_rub": 199,
+        "title": "1 месяц"
+      },
+      {
+        "code": "quarter",
+        "currency": "RUB",
+        "days": 90,
+        "price_rub": 399,
+        "title": "3 месяца"
+      },
+      {
+        "code": "year",
+        "currency": "RUB",
+        "days": 365,
+        "price_rub": 1200,
+        "title": "12 месяцев"
+      }
+    ],
+    "schema_version": 1,
+    "support": {
+      "email": "support@shiftvps.ru",
+      "privacy_url": "https://shiftvps.ru/privacy",
+      "telegram_url": "https://t.me/fixture_bot",
+      "terms_url": "https://shiftvps.ru/terms"
+    },
+    "telegram": {
+      "can_unlink": false,
+      "link_url": "https://shiftvps.ru/dashboard#telegram",
+      "linked": false,
+      "trial_available": true,
+      "trial_days": 3,
+      "username": null
+    }
+  }
+}

@@ -4,8 +4,16 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,7 +22,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -36,8 +46,6 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,11 +63,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -72,6 +82,8 @@ import androidx.compose.ui.unit.sp
 import fr.husi.bg.ServiceState
 import fr.husi.resources.*
 import fr.husi.shiftvps.ShiftVpsServer
+import fr.husi.shiftvps.ShiftVpsAccountActions
+import fr.husi.shiftvps.ShiftVpsAccessState
 import fr.husi.shiftvps.ShiftVpsUiState
 import fr.husi.shiftvps.ShiftVpsUpdatePhase
 import fr.husi.shiftvps.ShiftVpsUpdateState
@@ -104,8 +116,12 @@ internal fun ShiftVpsScreen(
     onOpenAccount: () -> Unit = {},
     onOpenPayment: () -> Unit = {},
     onOpenReferral: () -> Unit = {},
+    accountActions: ShiftVpsAccountActions? = null,
+    initialTab: ShiftVpsTab = ShiftVpsTab.Connection,
+    initialAccountSection: ShiftVpsAccountSection = ShiftVpsAccountSection.Overview,
 ) {
-    var selectedTab by remember(state.signedIn) { mutableStateOf(ShiftVpsTab.Connection) }
+    var selectedTab by remember(state.signedIn) { mutableStateOf(initialTab) }
+    var accountSection by remember(state.signedIn) { mutableStateOf(initialAccountSection) }
     ShiftVpsTheme {
         Surface(modifier.fillMaxSize(), color = ShiftVpsPalette.Background) {
             Box(Modifier.fillMaxSize().drawBehind {
@@ -124,22 +140,60 @@ internal fun ShiftVpsScreen(
             }, contentAlignment = Alignment.TopCenter) {
                 Column(
                     Modifier.widthIn(max = 560.dp).fillMaxWidth().fillMaxSize()
-                        .statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp),
+                        .statusBarsPadding().navigationBarsPadding().imePadding().padding(horizontal = 20.dp),
                 ) {
                     BrandHeader(state)
                     val error = if (browserError) stringResource(Res.string.shiftvps_browser_error) else state.error
                     if (state.signedIn) {
-                        ShiftVpsTabs(selectedTab) { selectedTab = it }
+                        if (browserError && selectedTab != ShiftVpsTab.Connection) {
+                            ErrorMessage(stringResource(Res.string.shiftvps_browser_error), onDismissError)
+                            Spacer(Modifier.height(8.dp))
+                        }
                         when (selectedTab) {
-                            ShiftVpsTab.Connection -> ServerContent(state, updateState, error, onRefresh, onCheckServers, onSelectServer,
+                            ShiftVpsTab.Connection -> if (state.accessState != ShiftVpsAccessState.Active) {
+                                InactiveAccessContent(state, onChoosePlan = {
+                                    accountSection = ShiftVpsAccountSection.Subscription
+                                    selectedTab = ShiftVpsTab.Account
+                                }, onRefresh = onRefreshSummary, onDisconnect = onToggleConnection, modifier = Modifier.weight(1f))
+                            } else ServerContent(state, updateState, error, onRefresh, onCheckServers, onSelectServer,
                                 onToggleConnection, onDismissError, onUpdate, Modifier.weight(1f))
                             else -> ShiftVpsAccountContent(state, selectedTab, onRefreshSummary, onOpenAccount,
-                                onOpenPayment, onOpenReferral, onLogout, Modifier.weight(1f))
+                                onOpenReferral, onLogout, Modifier.weight(1f), accountSection,
+                                { accountSection = it }, accountActions)
                         }
+                        ShiftVpsBottomNavigation(selectedTab, {
+                            accountSection = ShiftVpsAccountSection.Overview
+                            selectedTab = it
+                        },
+                            Modifier.padding(top = 8.dp, bottom = 12.dp))
                     } else {
                         SignInContent(state, updateState, error, onSignIn, onCancelLogin,
                             onUpdate, onOpenPayment, Modifier.weight(1f))
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InactiveAccessContent(state: ShiftVpsUiState, onChoosePlan: () -> Unit, onRefresh: () -> Unit,
+    onDisconnect: () -> Unit, modifier: Modifier) {
+    LazyColumn(modifier.fillMaxWidth(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+        if (state.serviceState.canStop) item {
+            ConnectionCard(state, false, onDisconnect)
+            Spacer(Modifier.height(20.dp))
+        }
+        item {
+            Surface(color = ShiftVpsPalette.Card, shape = CardShape, border = BorderStroke(1.dp, ShiftVpsPalette.Border)) {
+                Column(Modifier.fillMaxWidth().padding(20.dp)) {
+                    val inactive = state.accessState == ShiftVpsAccessState.Inactive
+                    Text(stringResource(if (inactive) Res.string.shiftvps_account_inactive else Res.string.shiftvps_account_access_status),
+                        style = MaterialTheme.typography.headlineSmall)
+                    Text(stringResource(if (inactive) Res.string.shiftvps_account_inactive_hint else Res.string.shiftvps_account_refresh_access), style = MaterialTheme.typography.bodyLarge,
+                        color = ShiftVpsPalette.Muted, modifier = Modifier.padding(top = 10.dp, bottom = 24.dp))
+                    BrandButton(stringResource(if (inactive) Res.string.shiftvps_account_choose_plan else Res.string.shiftvps_refresh),
+                        if (inactive) onChoosePlan else onRefresh, enabled = !state.loading, busy = state.loading)
                 }
             }
         }
@@ -165,18 +219,79 @@ private fun BrandHeader(state: ShiftVpsUiState) {
 }
 
 @Composable
-private fun ShiftVpsTabs(selectedTab: ShiftVpsTab, onSelect: (ShiftVpsTab) -> Unit) {
-    PrimaryTabRow(selectedTab.ordinal, containerColor = Color.Transparent, contentColor = ShiftVpsPalette.Accent,
-        divider = { HorizontalDivider(color = ShiftVpsPalette.Border) }) {
-        ShiftVpsTab.entries.forEach { tab ->
-            Tab(selected = tab == selectedTab, onClick = { onSelect(tab) },
-                selectedContentColor = ShiftVpsPalette.Text, unselectedContentColor = ShiftVpsPalette.Muted) {
-                Text(stringResource(when (tab) {
-                    ShiftVpsTab.Connection -> Res.string.shiftvps_tab_connection
-                    ShiftVpsTab.Account -> Res.string.shiftvps_tab_account
-                    ShiftVpsTab.Invitations -> Res.string.shiftvps_tab_invitations
-                }), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center,
-                    modifier = Modifier.heightIn(min = 48.dp).padding(horizontal = 4.dp, vertical = 14.dp))
+internal fun ShiftVpsBottomNavigation(selectedTab: ShiftVpsTab, onSelect: (ShiftVpsTab) -> Unit,
+    modifier: Modifier = Modifier) {
+    val dockShape = RoundedCornerShape(28.dp)
+    val itemShape = RoundedCornerShape(22.dp)
+    val density = LocalDensity.current
+    val labelLines = if (density.fontScale > 1.2f) 2 else 1
+    val itemHeight = maxOf(64.dp, 40.dp + with(density) { (18.sp * labelLines).toDp() })
+    BoxWithConstraints(modifier.fillMaxWidth().clip(dockShape)
+        .background(Brush.verticalGradient(listOf(
+            ShiftVpsPalette.CardRaised.copy(alpha = 0.97f), ShiftVpsPalette.Card.copy(alpha = 0.97f))))
+        .border(BorderStroke(1.dp, Brush.verticalGradient(listOf(
+            ShiftVpsPalette.Text.copy(alpha = 0.18f), ShiftVpsPalette.Border.copy(alpha = 0.7f)))), dockShape)
+        .padding(6.dp).selectableGroup()) {
+        val itemWidth = maxWidth / ShiftVpsTab.entries.size
+        val indicatorOffset by animateDpAsState(itemWidth * selectedTab.ordinal,
+            animationSpec = tween(240, easing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)), label = "navigation selection")
+        Box(Modifier.width(itemWidth).height(itemHeight)
+            .offset(x = indicatorOffset)
+            .background(Brush.verticalGradient(listOf(
+                ShiftVpsPalette.Accent.copy(alpha = 0.19f), ShiftVpsPalette.Selected.copy(alpha = 0.8f))), itemShape)
+            .border(1.dp, ShiftVpsPalette.Accent.copy(alpha = 0.17f), itemShape)
+            .semantics { testTag = "shiftvps-navigation-indicator" })
+        Row(Modifier.fillMaxWidth()) {
+            ShiftVpsTab.entries.forEach { tab ->
+                val interaction = remember { MutableInteractionSource() }
+                val pressed by interaction.collectIsPressedAsState()
+                val focused by interaction.collectIsFocusedAsState()
+                val color by animateColorAsState(if (tab == selectedTab) ShiftVpsPalette.Text else ShiftVpsPalette.Muted,
+                    animationSpec = tween(140), label = "navigation label")
+                Column(Modifier.weight(1f).height(itemHeight).clip(itemShape)
+                    .background(if (pressed || focused) ShiftVpsPalette.Text.copy(alpha = 0.08f) else Color.Transparent)
+                    .then(if (focused) Modifier.border(1.dp, ShiftVpsPalette.Accent, itemShape) else Modifier)
+                    .selectable(selected = tab == selectedTab, role = Role.Tab,
+                        interactionSource = interaction, indication = null, onClick = { onSelect(tab) })
+                    .padding(horizontal = 2.dp, vertical = 7.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    NavigationMark(tab, color, Modifier.size(23.dp))
+                    Text(stringResource(when (tab) {
+                        ShiftVpsTab.Connection -> Res.string.shiftvps_tab_connection
+                        ShiftVpsTab.Account -> Res.string.shiftvps_tab_account
+                        ShiftVpsTab.Invitations -> Res.string.shiftvps_tab_invitations
+                    }), color = color, style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, lineHeight = 18.sp),
+                        maxLines = labelLines, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth())
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NavigationMark(tab: ShiftVpsTab, color: Color, modifier: Modifier) {
+    if (tab == ShiftVpsTab.Connection) {
+        PowerMark(color, modifier)
+    } else {
+        Canvas(modifier) {
+            val stroke = Stroke(width = size.width * 0.075f, cap = StrokeCap.Round)
+            val centerX = size.width * if (tab == ShiftVpsTab.Account) 0.5f else 0.39f
+            drawCircle(color, size.width * 0.16f, Offset(centerX, size.height * 0.29f), style = stroke)
+            val shoulders = Path().apply {
+                moveTo(centerX - size.width * 0.28f, size.height * 0.86f)
+                lineTo(centerX - size.width * 0.28f, size.height * 0.75f)
+                cubicTo(centerX - size.width * 0.28f, size.height * 0.48f,
+                    centerX + size.width * 0.28f, size.height * 0.48f,
+                    centerX + size.width * 0.28f, size.height * 0.75f)
+                lineTo(centerX + size.width * 0.28f, size.height * 0.86f)
+            }
+            drawPath(shoulders, color, style = stroke)
+            if (tab == ShiftVpsTab.Invitations) {
+                drawLine(color, Offset(size.width * 0.72f, size.height * 0.34f),
+                    Offset(size.width * 0.98f, size.height * 0.34f), stroke.width, StrokeCap.Round)
+                drawLine(color, Offset(size.width * 0.85f, size.height * 0.21f),
+                    Offset(size.width * 0.85f, size.height * 0.47f), stroke.width, StrokeCap.Round)
             }
         }
     }
