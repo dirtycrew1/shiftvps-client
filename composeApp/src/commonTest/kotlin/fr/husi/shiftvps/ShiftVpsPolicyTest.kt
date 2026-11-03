@@ -35,16 +35,17 @@ class ShiftVpsPolicyTest {
         )
         enforceManagedRouting(options)
         val rules = (options["route"] as Map<*, *>)["rules"] as List<*>
-        assertEquals("sniff", (rules[0] as Map<*, *>)["action"])
-        assertEquals("hijack-dns", (rules[1] as Map<*, *>)["action"])
-        assertEquals(listOf("ru"), (rules[2] as Map<*, *>)["domain_suffix"])
-        assertEquals(MANAGED_DIRECT_TAG, (rules[2] as Map<*, *>)["outbound"])
+        assertEquals("hijack-dns", (rules[0] as Map<*, *>)["action"])
+        assertEquals("sniff", (rules[1] as Map<*, *>)["action"])
+        val ru = rules.map { it as Map<*, *> }.single { "domain_suffix" in it }
+        assertEquals(listOf("ru"), ru["domain_suffix"])
+        assertEquals(MANAGED_DIRECT_TAG, ru["outbound"])
         assertEquals(mapOf("network" to listOf("tcp"), "port" to listOf(22),
-            "action" to "route", "outbound" to MANAGED_DIRECT_TAG), rules[3])
-        assertEquals("proxy", (rules[4] as Map<*, *>)["outbound"])
+            "action" to "route", "outbound" to MANAGED_DIRECT_TAG), rules[rules.lastIndex-1])
+        assertEquals("proxy", (rules.last() as Map<*, *>)["outbound"])
         val direct = (options["outbounds"] as List<*>).single() as Map<*, *>
         assertEquals("direct", direct["type"])
-        assertEquals(mapOf("server" to MANAGED_DNS_TAG), direct["domain_resolver"])
+        assertEquals(mapOf("server" to MANAGED_DNS_TAG,"strategy" to "prefer_ipv4"), direct["domain_resolver"])
     }
 
     @Test
@@ -53,14 +54,14 @@ class ShiftVpsPolicyTest {
         val options: JSONMap = mutableMapOf("route" to mapOf("rules" to listOf(proxy)))
         enforceManagedRouting(options)
         val rules = (options["route"] as Map<*, *>)["rules"] as List<*>
-        val ssh = rules[1] as Map<*, *>
+        val ssh = rules.map { it as Map<*, *> }.single { "port" in it }
         assertEquals(setOf("network", "port", "action", "outbound"), ssh.keys)
         assertEquals(listOf("tcp"), ssh["network"])
         assertEquals(listOf(22), ssh["port"])
         assertEquals(MANAGED_DIRECT_TAG, ssh["outbound"])
         assertFalse((ssh["port"] as List<*>).contains(443))
         assertFalse((ssh["network"] as List<*>).contains("udp"))
-        assertEquals(listOf("ru"), (rules[0] as Map<*, *>)["domain_suffix"])
+        assertEquals(listOf("ru"), rules.map { it as Map<*, *> }.single { "domain_suffix" in it }["domain_suffix"])
         assertEquals(proxy, rules.last())
     }
 
@@ -71,10 +72,10 @@ class ShiftVpsPolicyTest {
         val options: JSONMap = mutableMapOf("route" to mapOf("rules" to preprocessing + proxy))
         enforceManagedRouting(options)
         val rules = (options["route"] as Map<*, *>)["rules"] as List<*>
-        assertEquals(preprocessing, rules.take(4))
-        assertEquals(listOf("ru"), (rules[4] as Map<*, *>)["domain_suffix"])
-        assertEquals(listOf(22), (rules[5] as Map<*, *>)["port"])
-        assertEquals(proxy, rules[6])
+        assertEquals(listOf(preprocessing[1],preprocessing[0],preprocessing[2],preprocessing[3]), rules.take(4))
+        assertEquals(listOf("ru"), rules.map { it as Map<*, *> }.single { "domain_suffix" in it }["domain_suffix"])
+        assertEquals(listOf(22), (rules[rules.lastIndex-1] as Map<*, *>)["port"])
+        assertEquals(proxy, rules.last())
     }
 
     @Test
@@ -82,12 +83,12 @@ class ShiftVpsPolicyTest {
         val options: JSONMap = mutableMapOf()
         enforceManagedRouting(options)
         val rules = (options["route"] as Map<*, *>)["rules"] as List<*>
-        assertEquals(2, rules.size)
-        assertEquals(listOf("ru"), (rules[0] as Map<*, *>)["domain_suffix"])
-        assertEquals(listOf(22), (rules[1] as Map<*, *>)["port"])
+        assertEquals(6, rules.size)
+        assertEquals(listOf("ru"), rules.map { it as Map<*, *> }.single { "domain_suffix" in it }["domain_suffix"])
+        assertEquals(listOf(22), (rules.last() as Map<*, *>)["port"])
         val direct = (options["outbounds"] as List<*>).single() as Map<*, *>
         assertEquals("direct", direct["type"])
-        assertEquals(mapOf("server" to MANAGED_DNS_TAG), direct["domain_resolver"])
+        assertEquals(mapOf("server" to MANAGED_DNS_TAG,"strategy" to "prefer_ipv4"), direct["domain_resolver"])
     }
 
     @Test

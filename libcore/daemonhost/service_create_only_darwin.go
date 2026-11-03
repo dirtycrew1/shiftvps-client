@@ -73,14 +73,14 @@ func ServiceInstallIfAbsent(workingDir string) error {
 	)
 }
 
-type boundedServiceInventory struct{ bytes.Buffer }
+type boundedServiceInventory struct{ buffer bytes.Buffer }
 
 func (output *boundedServiceInventory) Write(content []byte) (int, error) {
 	const maxInventoryBytes = 16 << 20
-	if len(content) > maxInventoryBytes-output.Len() {
+	if len(content) > maxInventoryBytes-output.buffer.Len() {
 		return 0, errors.New("system service inventory exceeded limit")
 	}
-	return output.Buffer.Write(content)
+	return output.buffer.Write(content)
 }
 
 func requireDarwinServiceAbsent() error {
@@ -91,7 +91,7 @@ func requireDarwinServiceAbsent() error {
 	command.Stdout = &output
 	command.Stderr = io.Discard
 	err := command.Run()
-	if !darwinServiceAbsentFromInventory(output.Bytes(), darwinServiceLabel, err == nil) {
+	if !darwinServiceAbsentFromInventory(output.buffer.Bytes(), darwinServiceLabel, err == nil) {
 		return errors.New("system service exists or its state is unknown; automatic installation refused")
 	}
 	return nil
