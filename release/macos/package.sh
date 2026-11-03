@@ -445,7 +445,7 @@ verify_native_binary() {
     local binary="$1"
     local expected_machine="arm64"
     if [[ "$TARGET_ARCH" == "amd64" ]]; then expected_machine="x86_64"; fi
-    if ! file "$binary" | grep "Mach-O.*$expected_machine" >/dev/null; then
+    if ! file -bL "$binary" | grep "Mach-O.*$expected_machine" >/dev/null; then
         error "Binary does not match darwin/$TARGET_ARCH: $binary"
         exit 1
     fi

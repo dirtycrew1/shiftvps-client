@@ -101,7 +101,11 @@ unset DESKTOP_URL_SCHEMES
 (
     HOST_OS=darwin
     binary_path='/fixture path/launcher'
-    file() { printf '%s: Mach-O 64-bit executable %s\n' "$1" "$expected_arch"; }
+    file() {
+        # Framework entry points can be links; inspect their actual Mach-O target.
+        [[ "$#" -eq 2 && "$1" == '-bL' && "$2" == "$binary_path" ]] || return 1
+        printf 'Mach-O 64-bit executable %s\n' "$expected_arch"
+    }
     error() { printf '%s\n' "$*" >&2; }
     log() { :; }
     otool() {
