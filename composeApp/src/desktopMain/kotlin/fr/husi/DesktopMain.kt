@@ -83,7 +83,7 @@ fun main(args: Array<String>) {
  */
 private fun configureNucleusAppIdentity() {
     System.setProperty("nucleus.app.id", APP_NAME)
-    System.setProperty("nucleus.app.name", "Husi")
+    System.setProperty("nucleus.app.name", "ShiftVPS")
 }
 
 class DesktopMain(

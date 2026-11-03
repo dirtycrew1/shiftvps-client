@@ -140,7 +140,7 @@ class ServiceNotification(
             .setContentTitle(title)
             .setOnlyAlertOnce(true)
             .setContentIntent(resolveAndroidRepository().configureIntent(service))
-            .setSmallIcon(R.drawable.ic_launcher_monochrome)
+            .setSmallIcon(R.drawable.ic_shiftvps_notification)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(if (visible) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_MIN)
     }

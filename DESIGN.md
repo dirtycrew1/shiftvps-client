@@ -89,7 +89,6 @@ rounded:
   button: "12dp"
   row: "16dp"
   card: "20dp"
-  login-mark: "24dp"
   flag: "3dp"
 spacing:
   compact: "8dp"
@@ -188,7 +187,7 @@ Native lengths in frontmatter use dp and sp. The sidecar's HTML/CSS specimens tr
 
 ## Layout
 
-The content column is centered, bounded to 560 dp, and inset by the page spacing. The default desktop window is 460 × 760 dp. The header is at least 84 dp high and shows the brand, current account and logout action. The signed-in path places connection state and its full-width action above the server list; sign-in centers its short browser explanation and action in the available scrolling area.
+The content column is centered, bounded to 560 dp, and inset by the page spacing. The default desktop window is 460 × 760 dp. The header is at least 84 dp high and shows the text-only SHIFTVPS wordmark, current account and logout action. The signed-in path places connection state and its full-width action above the server list; sign-in centers a compact panel with one action in the available scrolling area.
 
 Both content paths use LazyColumn. Status-bar and navigation-bar insets are applied. Inline errors and updates participate in that flow. Main actions are at least 56 dp high, other actions at least 48 dp, and server rows at least 76 dp. Long account names ellipsize to one line; server names allow two lines. There is no fixed footer covering the connection control.
 
@@ -204,7 +203,7 @@ Depth comes mainly from tonal surfaces and thin borders. The dotted ground is dr
 
 ## Shapes
 
-Connection cards use the card radius; grouped server lists round only the outer first and last row corners using the row radius. Buttons use their smaller radius. The sign-in mark has its own rounded square. Flag vectors keep their 4:3 composition, slight flag rounding and a subtle light border. Power and update symbols are native geometry or vector artwork, not text glyph substitutes.
+Connection and sign-in panels use the card radius; grouped server lists round only the outer first and last row corners using the row radius. Buttons use their smaller radius. Sign-in uses the text wordmark without an invented symbol. Flag vectors keep their 4:3 composition, slight flag rounding and a subtle light border. Power and update symbols are native geometry or vector artwork, not text glyph substitutes.
 
 ## Components
 
@@ -224,9 +223,15 @@ The user requested removal of the caption “Сайты .ru — напрямую
 
 The update banner represents available, downloading with real percentage, permission required, disconnect required, installing and failed-with-retry states. It has an update vector, written title, optional version and a compact action or progress indicator. The renderer receives state and callbacks; it does not install, download or connect by itself. Errors, updates and connection-state changes use polite live regions.
 
+### Account sign-in
+
+Sign-in shows one primary action and a short browser hint. Browser approval keeps the comparison code and a cancel action. A failed sign-in replaces that panel's content with the actual error and one retry action; it does not leave a stale code or a second dismiss action. Failure to open the browser cancels the pending authorization so retry can start normally. Browser SSO, PKCE and code comparison remain required.
+
 ### Native shell
 
 The desktop tray retains opening ShiftVPS, stopping an active connection and quitting. Required Android VPN permission and authentication dialogs remain. The simple client has no protocol editor, advanced settings, external import surface or unmanaged shortcut entry points.
+
+Application icons use the outlined `SHIFT` / `VPS` text wordmark and a compact `S` at 32 pixels and below, derived from the bundled IBM Plex Bold face. Platform launchers, the desktop window/tray and Android system icons share this family. Sources, masks, licensing and generated container checks are documented in [art/ICONS.md](art/ICONS.md).
 
 ## Do's and Don'ts
 

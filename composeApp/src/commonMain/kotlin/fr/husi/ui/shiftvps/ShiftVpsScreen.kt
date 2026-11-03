@@ -122,6 +122,7 @@ fun ShiftVpsMainScreen(modifier: Modifier = Modifier) {
                     uriHandler.openUri(event.url)
                     false
                 } catch (_: Exception) {
+                    controller.cancelLogin()
                     true
                 }
                 ShiftVpsEvent.LaunchVpn -> currentLaunchVpn()

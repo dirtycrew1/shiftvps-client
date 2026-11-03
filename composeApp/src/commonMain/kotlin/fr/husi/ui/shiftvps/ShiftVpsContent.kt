@@ -120,7 +120,7 @@ internal fun ShiftVpsScreen(
                             onToggleConnection, onDismissError, onUpdate, Modifier.weight(1f))
                     } else {
                         SignInContent(state, updateState, error, onSignIn, onCancelLogin,
-                            onDismissError, onUpdate, Modifier.weight(1f))
+                            onUpdate, Modifier.weight(1f))
                     }
                 }
             }
@@ -158,57 +158,61 @@ private fun SignInContent(
     error: String?,
     onSignIn: () -> Unit,
     onCancel: () -> Unit,
-    onDismissError: () -> Unit,
     onUpdate: () -> Unit,
     modifier: Modifier,
 ) {
-    val waiting = state.authCode != null
+    val waiting = state.authCode != null && error == null
     LazyColumn(modifier.fillMaxWidth(), contentPadding = PaddingValues(top = 20.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
         if (updateState.phase != ShiftVpsUpdatePhase.Idle) {
             item { UpdateBanner(updateState, onUpdate); Spacer(Modifier.height(24.dp)) }
         }
-        if (error != null) {
-            item { ErrorMessage(error, onDismissError); Spacer(Modifier.height(24.dp)) }
-        }
         item {
-            Box(Modifier.size(88.dp).background(ShiftVpsPalette.Card, RoundedCornerShape(24.dp))
-                .border(1.dp, ShiftVpsPalette.Border, RoundedCornerShape(24.dp)), contentAlignment = Alignment.Center) {
-                Icon(painterResource(Res.drawable.ic_shiftvps), contentDescription = null,
-                    tint = Color.Unspecified, modifier = Modifier.size(60.dp))
-            }
-            Spacer(Modifier.height(28.dp))
-            Text(stringResource(if (waiting) Res.string.shiftvps_sign_in_waiting else Res.string.shiftvps_sign_in_title),
-                style = MaterialTheme.typography.displaySmall, textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(12.dp))
-            Text(stringResource(if (waiting) Res.string.shiftvps_sign_in_code else Res.string.shiftvps_sign_in_description),
-                style = MaterialTheme.typography.bodyLarge, color = ShiftVpsPalette.Muted,
-                textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp))
-            Spacer(Modifier.height(32.dp))
-            if (waiting) {
-                Surface(color = ShiftVpsPalette.Card, shape = CardShape, border = BorderStroke(1.dp, ShiftVpsPalette.Border)) {
-                    Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(checkNotNull(state.authCode), style = MaterialTheme.typography.headlineMedium,
-                            fontFamily = FontFamily.Monospace, letterSpacing = 3.sp)
-                        Spacer(Modifier.height(18.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = ShiftVpsPalette.Accent)
-                            Spacer(Modifier.width(10.dp))
-                            Text(stringResource(Res.string.shiftvps_waiting_confirmation), style = MaterialTheme.typography.bodySmall,
-                                color = ShiftVpsPalette.Muted)
+            Surface(modifier = Modifier.widthIn(max = 420.dp).fillMaxWidth(), color = ShiftVpsPalette.Card,
+                shape = CardShape, border = BorderStroke(1.dp, ShiftVpsPalette.Border)) {
+                Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(stringResource(when {
+                        error != null -> Res.string.shiftvps_sign_in_failed
+                        waiting -> Res.string.shiftvps_sign_in_waiting
+                        else -> Res.string.shiftvps_sign_in_title
+                    }), style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite })
+                    when {
+                        error != null -> {
+                            Text(error, style = MaterialTheme.typography.bodyMedium, color = ShiftVpsPalette.Error,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                                    .semantics { liveRegion = LiveRegionMode.Polite })
+                            Spacer(Modifier.height(28.dp))
+                            BrandButton(stringResource(Res.string.shiftvps_retry), onSignIn,
+                                enabled = !state.loading && updateState.phase != ShiftVpsUpdatePhase.Installing,
+                                busy = state.loading)
+                        }
+                        waiting -> {
+                            Text(stringResource(Res.string.shiftvps_sign_in_code),
+                                style = MaterialTheme.typography.bodyMedium, color = ShiftVpsPalette.Muted,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
+                            Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 24.dp)
+                                .background(ShiftVpsPalette.CardRaised, ButtonShape).padding(horizontal = 12.dp, vertical = 20.dp),
+                                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                                Text(checkNotNull(state.authCode), style = MaterialTheme.typography.headlineMedium,
+                                    fontFamily = FontFamily.Monospace, letterSpacing = 2.sp)
+                                Spacer(Modifier.width(12.dp))
+                                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = ShiftVpsPalette.Accent)
+                            }
+                            BrandButton(stringResource(Res.string.shiftvps_cancel), onCancel, secondary = true)
+                        }
+                        else -> {
+                            Spacer(Modifier.height(28.dp))
+                            BrandButton(stringResource(Res.string.shiftvps_sign_in), onSignIn,
+                                enabled = !state.loading && updateState.phase != ShiftVpsUpdatePhase.Installing, busy = state.loading)
+                            Text(stringResource(Res.string.shiftvps_browser_sign_in_hint), style = MaterialTheme.typography.bodySmall,
+                                color = ShiftVpsPalette.Muted, textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(top = 16.dp))
                         }
                     }
                 }
-                TextButton(onCancel, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(top = 8.dp)) {
-                    Text(stringResource(Res.string.shiftvps_cancel))
-                }
-            } else {
-                BrandButton(stringResource(Res.string.shiftvps_sign_in), onSignIn,
-                    enabled = !state.loading && updateState.phase != ShiftVpsUpdatePhase.Installing, busy = state.loading)
-                Text(stringResource(Res.string.shiftvps_browser_sign_in_hint), style = MaterialTheme.typography.bodySmall,
-                    color = ShiftVpsPalette.Muted, textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp))
             }
         }
     }

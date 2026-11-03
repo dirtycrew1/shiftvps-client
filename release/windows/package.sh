@@ -668,6 +668,7 @@ build_nsis() {
         "__HUSI_VI_VERSION__" "$vi_version" \
         "__HUSI_OUTPUT_FILE__" "$output_path" \
         "__HUSI_LICENSE_FILE__" "$ROOT_DIR/LICENSE" \
+        "__HUSI_ICON_FILE__" "$ROOT_DIR/launcher/icon.ico" \
         "__HUSI_LAUNCHER_FILE__" "$INPUT_LAUNCHER_BIN" \
         "__HUSI_CORE_FILE__" "$INPUT_CORE_BIN" \
         "__HUSI_CORE_LIBRARY_NAME__" "$CORE_LIBRARY_NAME" \

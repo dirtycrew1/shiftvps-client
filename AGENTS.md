@@ -26,7 +26,7 @@ Common targets:
 | `make desktop_package_windows_jbr DESKTOP_TARGET=...` | Windows zip/NSIS plus a -jbr pair with jlink JetBrains Runtime |
 | `make launcher` | Zig native UI launcher from `launcher/` |
 | `make plugin PLUGIN=<name>` | Plugin APK; valid: `hysteria2 juicity naive mieru shadowquic` |
-| `make icon` | Regenerate all icons from `art/` (needs `rsvg-convert` + ImageMagick) |
+| `make icon` | Regenerate all icons from `art/` with the pinned Python renderer or `rsvg-convert` |
 | `make aboutlibraries` | Regenerate OSS license JSON |
 | `make generate_option` | Regenerate sing-box option mappings; output piped through `$CLIP` |
 | `make proto` | Re-vendor sing-box schema and regenerate Go gRPC stubs |
@@ -69,9 +69,9 @@ Do not run `exportLibraryDefinitions` and `exportLibraryDefinitionsDesktop` in o
 
 ### Icon pipeline
 
-- `art/icon.svg` is the full mark; `art/icon-small.svg` is the simplified variant (triangle + outer bowl) used at or below 96px — they serve different size ranges and must not be merged.
+- `art/icon.svg` is the outlined `SHIFT` / `VPS` wordmark; `art/icon-small.svg` is the `S` glyph used at or below 32px. Both are generated from the bundled pinned font by `buildScript/wordmark_icon.py` and serve different size ranges.
 - `buildScript/icon.py` rejects anything but `<path>` elements in the SVG.
-- Never hand-edit generated icon files (Android `<vector>` XML included) — edit the SVG and re-run `make icon`.
+- Never hand-edit generated icon files (outlined SVG and Android `<vector>` XML included) — edit the wordmark generator and re-run `make icon`. See `art/ICONS.md` for provenance and checks.
 
 ### Desktop has no Go in the JVM
 

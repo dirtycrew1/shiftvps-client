@@ -26,6 +26,12 @@ import fr.husi.resources.Res
 import fr.husi.resources.shiftvps_connect
 import fr.husi.resources.shiftvps_disconnect
 import fr.husi.resources.shiftvps_sign_in
+import fr.husi.resources.shiftvps_sign_in_code
+import fr.husi.resources.shiftvps_sign_in_waiting
+import fr.husi.resources.shiftvps_sign_in_failed
+import fr.husi.resources.shiftvps_browser_error
+import fr.husi.resources.shiftvps_cancel
+import fr.husi.resources.shiftvps_retry
 import fr.husi.resources.shiftvps_update_action
 import fr.husi.resources.shiftvps_update_available
 import fr.husi.shiftvps.ShiftVpsServer
@@ -43,6 +49,7 @@ import org.jetbrains.skia.Typeface
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /** Raster-only UI fixtures: no account controller, core process or network is constructed. */
@@ -52,11 +59,48 @@ class ShiftVpsScreenSnapshotTest {
     fun `login remains a single browser sign in action`() = runBlocking {
         val signIn = getString(Res.string.shiftvps_sign_in)
         withContext(Dispatchers.Swing) {
-            snapshot("login-phone", 390, 844, ShiftVpsUiState()) { scene ->
-                assertTrue(texts(scene).contains(signIn))
+            authSizes.forEach { (device, width, height) ->
+                snapshot("login-$device", width, height, ShiftVpsUiState()) { scene ->
+                    assertTrue(texts(scene).contains(signIn))
+                    assertEquals(1, buttons(scene).count())
+                }
             }
         }
     }
+
+    @Test
+    fun `browser confirmation keeps the comparison code and one cancel action`() = runBlocking {
+        val title = getString(Res.string.shiftvps_sign_in_waiting)
+        val comparison = getString(Res.string.shiftvps_sign_in_code)
+        val cancel = getString(Res.string.shiftvps_cancel)
+        withContext(Dispatchers.Swing) {
+            authSizes.forEach { (device, width, height) ->
+                snapshot("login-pending-$device", width, height, ShiftVpsUiState(authCode = "ABCD-EFGH")) { scene ->
+                    assertTrue(texts(scene).containsAll(listOf(title, comparison, "ABCD-EFGH", cancel)))
+                    assertEquals(1, buttons(scene).count())
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `browser failure replaces stale confirmation with one retry action`() = runBlocking {
+        val title = getString(Res.string.shiftvps_sign_in_failed)
+        val message = getString(Res.string.shiftvps_browser_error)
+        val retry = getString(Res.string.shiftvps_retry)
+        withContext(Dispatchers.Swing) {
+            authSizes.forEach { (device, width, height) ->
+                snapshot("login-error-$device", width, height, ShiftVpsUiState(authCode = "ABCD-EFGH"),
+                    browserError = true) { scene ->
+                    assertTrue(texts(scene).containsAll(listOf(title, message, retry)))
+                    assertFalse(texts(scene).contains("ABCD-EFGH"))
+                    assertEquals(1, buttons(scene).count())
+                }
+            }
+        }
+    }
+
+    private val authSizes = listOf(Triple("phone", 320, 700), Triple("desktop", 460, 760))
 
     @Test
     fun `server list keeps distinct logical server choices`() = runBlocking {
@@ -179,6 +223,7 @@ class ShiftVpsScreenSnapshotTest {
         height: Int,
         state: ShiftVpsUiState,
         updateState: ShiftVpsUpdateState = ShiftVpsUpdateState(),
+        browserError: Boolean = false,
         verify: (ImageComposeScene) -> Unit,
     ) {
         val scene = ImageComposeScene(width, height, Density(1f)) {
@@ -196,6 +241,7 @@ class ShiftVpsScreenSnapshotTest {
                         onToggleConnection = {},
                         onLogout = {},
                         onDismissError = {},
+                        browserError = browserError,
                         updateState = updateState,
                     )
                 }
@@ -249,6 +295,11 @@ class ShiftVpsScreenSnapshotTest {
 
     private fun radioRows(scene: ImageComposeScene): Sequence<SemanticsNode> = nodes(scene).filter {
         SemanticsProperties.Role in it.config && it.config[SemanticsProperties.Role] == Role.RadioButton &&
+            SemanticsActions.OnClick in it.config
+    }
+
+    private fun buttons(scene: ImageComposeScene): Sequence<SemanticsNode> = nodes(scene).filter {
+        SemanticsProperties.Role in it.config && it.config[SemanticsProperties.Role] == Role.Button &&
             SemanticsActions.OnClick in it.config
     }
 }

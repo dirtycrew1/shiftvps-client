@@ -9,6 +9,8 @@ Unicode true
 !include "nsDialogs.nsh"
 !include "WinMessages.nsh"
 !include "WordFunc.nsh"
+!include "Win\COM.nsh"
+!include "Win\Propkey.nsh"
 
 ; --- Metadata ---
 !define PACKAGE_NAME    "__HUSI_PACKAGE_NAME__"
@@ -40,6 +42,8 @@ VIAddVersionKey "LegalCopyright" "${MAINTAINER}"
 
 ; --- MUI settings ---
 !define MUI_ABORTWARNING
+!define MUI_ICON "__HUSI_ICON_FILE__"
+!define MUI_UNICON "__HUSI_ICON_FILE__"
 
 Var CreateDesktopShortcut
 Var CreateStartMenuShortcut
@@ -219,6 +223,8 @@ __HUSI_RUNTIME_INSTALL__
         "QuietUninstallString" '"$INSTDIR\uninstall.exe" /S'
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PACKAGE_NAME}" \
         "InstallLocation" "$INSTDIR"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PACKAGE_NAME}" \
+        "DisplayIcon" "$INSTDIR\${APP_NAME}.exe,0"
     WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PACKAGE_NAME}" \
         "NoModify" 1
     WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PACKAGE_NAME}" \
@@ -453,6 +459,59 @@ Function installCoreService
     ${EndIf}
 FunctionEnd
 
+; Give launcher shortcuts the same identity as the JVM window/notification process.
+Function setShortcutIdentity
+    Exch $9
+    Push $0
+    Push $1
+    Push $2
+    Push $3
+    Push $4
+    Push $5
+    System::Call 'ole32::CoInitializeEx(p 0, i 2)i.r5'
+    System::Call 'shell32::SHGetPropertyStoreFromParsingName(w r9, p 0, i 2, g "${IID_IPropertyStore}", *p.r0)i.r1'
+    ${If} $1 == 0
+        System::Call '*${SYSSTRUCT_PROPERTYKEY}(${PKEY_AppUserModel_ID})p.r2'
+        System::Call 'shlwapi::SHStrDupW(w "${PACKAGE_NAME}", *p.r3)i.r1'
+        ${If} $1 == 0
+            ; Keep the 8-byte PROPVARIANT union even in a 32-bit installer.
+            System::Call '*${SYSSTRUCT_PROPVARIANT}(${VT_LPWSTR},,r3)p.r4'
+            System::Call '$0->6(p r2, p r4)i.r1'
+            ${If} $1 == 0
+                System::Call '$0->7()i.r1'
+            ${EndIf}
+            !insertmacro PropVariantClear $4
+            System::Free $4
+        ${EndIf}
+        System::Free $2
+        System::Call '$0->2()'
+    ${EndIf}
+    ${If} $1 != 0
+        DetailPrint "The shortcut application identity could not be saved."
+    ${EndIf}
+    ${If} $5 >= 0
+        System::Call 'ole32::CoUninitialize()'
+    ${EndIf}
+    Pop $5
+    Pop $4
+    Pop $3
+    Pop $2
+    Pop $1
+    Pop $0
+    Pop $9
+FunctionEnd
+
+Function refreshShortcutIdentities
+    ${If} ${FileExists} "$DESKTOP\${APP_NAME}.lnk"
+        Push "$DESKTOP\${APP_NAME}.lnk"
+        Call setShortcutIdentity
+    ${EndIf}
+    ${If} ${FileExists} "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk"
+        Push "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk"
+        Call setShortcutIdentity
+    ${EndIf}
+FunctionEnd
+
 Function createShortcuts
     Delete "$DESKTOP\${APP_NAME}.lnk"
     Delete "$DESKTOP\${APP_NAME_ZH_CN}.lnk"
@@ -462,18 +521,22 @@ Function createShortcuts
     Delete "$SMPROGRAMS\${APP_NAME}\卸载.lnk"
     RMDir "$SMPROGRAMS\${APP_NAME}"
 
-    StrCmp $CreateDesktopShortcut ${BST_CHECKED} 0 +2
-    CreateShortCut "$DESKTOP\$(ShortcutAppName).lnk" "$INSTDIR\${APP_NAME}.exe" "" "" "" "" "" "${APP_DESCRIPTION}"
+    ${If} $CreateDesktopShortcut == ${BST_CHECKED}
+        CreateShortCut "$DESKTOP\$(ShortcutAppName).lnk" "$INSTDIR\${APP_NAME}.exe" "" "$INSTDIR\${APP_NAME}.exe" 0 "" "" "${APP_DESCRIPTION}"
+    ${EndIf}
 
-    StrCmp $CreateStartMenuShortcut ${BST_CHECKED} 0 +4
-    CreateDirectory "$SMPROGRAMS\${APP_NAME}"
-    CreateShortCut "$SMPROGRAMS\${APP_NAME}\$(ShortcutAppName).lnk" "$INSTDIR\${APP_NAME}.exe" "" "" "" "" "" "${APP_DESCRIPTION}"
-    CreateShortCut "$SMPROGRAMS\${APP_NAME}\$(UninstallShortcutName).lnk" "$INSTDIR\uninstall.exe"
+    ${If} $CreateStartMenuShortcut == ${BST_CHECKED}
+        CreateDirectory "$SMPROGRAMS\${APP_NAME}"
+        CreateShortCut "$SMPROGRAMS\${APP_NAME}\$(ShortcutAppName).lnk" "$INSTDIR\${APP_NAME}.exe" "" "$INSTDIR\${APP_NAME}.exe" 0 "" "" "${APP_DESCRIPTION}"
+        CreateShortCut "$SMPROGRAMS\${APP_NAME}\$(UninstallShortcutName).lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
+    ${EndIf}
+    Call refreshShortcutIdentities
 FunctionEnd
 
 Function .onInstSuccess
     ${If} $UpdateMode == 1
         RMDir /r "$UpdateBackup"
+        Call refreshShortcutIdentities
         Exec '"$INSTDIR\${APP_NAME}.exe"'
     ${Else}
         Call createShortcuts

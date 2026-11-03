@@ -31,6 +31,7 @@ jobs:
       - uses: ./.github/actions/load-build-versions
       - uses: ./.github/actions/setup-ndk
       - uses: ./.github/actions/setup-jbr
+        timeout-minutes: 17
       - uses: ./.github/actions/gradle-cache
         with:
           read-only: 'true'
@@ -121,6 +122,7 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/load-build-versions
       - uses: ./.github/actions/setup-jbr
+        timeout-minutes: 17
       - uses: ./.github/actions/gradle-cache
         with:
           read-only: 'true'

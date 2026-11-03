@@ -183,7 +183,11 @@ fmt_go:
 
 fmt_go_install: lint_go_install
 
-test: test_gradle test_go test_zig
+test: test_gradle test_go test_zig test_jbr
+
+.PHONY: test_jbr
+test_jbr:
+	bash ./buildScript/lib/test-jbr.sh
 
 test_gradle:
 	./gradlew :composeApp:allTests

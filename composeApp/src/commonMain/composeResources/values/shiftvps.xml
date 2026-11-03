@@ -2,10 +2,10 @@
 <resources>
     <string name="shiftvps_open_app">Open ShiftVPS</string>
     <string name="shiftvps_sign_in">Sign in</string>
-    <string name="shiftvps_sign_in_title">Sign in to ShiftVPS</string>
-    <string name="shiftvps_sign_in_description">Use your ShiftVPS account. Your servers will appear automatically.</string>
-    <string name="shiftvps_sign_in_waiting">Confirm sign-in in your browser</string>
-    <string name="shiftvps_sign_in_code">Make sure this code matches the one in your browser.</string>
+    <string name="shiftvps_sign_in_title">Account sign-in</string>
+    <string name="shiftvps_sign_in_waiting">Confirm sign-in</string>
+    <string name="shiftvps_sign_in_code">Match this code in your browser</string>
+    <string name="shiftvps_sign_in_failed">Could not sign in</string>
     <string name="shiftvps_cancel">Cancel</string>
     <string name="shiftvps_logout">Sign out</string>
     <string name="shiftvps_server_list">Servers</string>
@@ -32,9 +32,8 @@
     <string name="shiftvps_updated_at">Updated %1$s</string>
     <string name="shiftvps_retry">Try again</string>
     <string name="shiftvps_dismiss">Dismiss</string>
-    <string name="shiftvps_browser_error">Could not open the browser. Try signing in again.</string>
-    <string name="shiftvps_browser_sign_in_hint">Your ShiftVPS account opens in your browser.</string>
-    <string name="shiftvps_waiting_confirmation">Waiting for confirmation</string>
+    <string name="shiftvps_browser_error">The browser did not open.</string>
+    <string name="shiftvps_browser_sign_in_hint">Opens in your browser</string>
     <string name="shiftvps_selected_server">Selected</string>
     <string name="shiftvps_latency_label">latency</string>
     <string name="shiftvps_auto_check">Checked when you open the app</string>

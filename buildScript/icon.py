@@ -9,6 +9,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from wordmark_icon import generate as generate_wordmark
+
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE_LARGE = ROOT / "art" / "icon.svg"
 SOURCE_SMALL = ROOT / "art" / "icon-small.svg"
@@ -16,14 +18,14 @@ SOURCE_SMALL = ROOT / "art" / "icon-small.svg"
 CANVAS = 135.47
 ANDROID_LAYER_DP = 108
 
-BACKGROUND = "#0E1014"
+BACKGROUND = "#08080B"
 MONOCHROME_COLOR = "#000000"
 MONOCHROME_STROKE_SCALE = 1.6
 
-ANDROID_MARK_FRACTION = 0.53
-PLATED_MARK_FRACTION = 0.58
+ANDROID_MARK_FRACTION = 0.49
+PLATED_MARK_FRACTION = 0.76
 SMALL_MARK_FRACTION = 0.72
-SMALL_ARTWORK_MAX_SIZE = 96
+SMALL_ARTWORK_MAX_SIZE = 32
 
 MIN_STROKE_PIXELS = 1.25
 STRUCTURAL_STROKE_WIDTH = 1.0
@@ -268,7 +270,8 @@ def flatten(source: Path, destination: Path) -> None:
         background.convert("RGB").save(destination, format="PNG")
 
 
-def android_vector(artwork: Artwork, monochrome: bool, fraction: float = ANDROID_MARK_FRACTION) -> str:
+def android_vector(artwork: Artwork, monochrome: bool, fraction: float = ANDROID_MARK_FRACTION,
+                   background: bool = False) -> str:
     scale, x, y = mark_transform(artwork.bounds, Plate(), fraction)
     lines = [
         '<vector xmlns:android="http://schemas.android.com/apk/res/android"',
@@ -276,12 +279,21 @@ def android_vector(artwork: Artwork, monochrome: bool, fraction: float = ANDROID
         f'    android:height="{ANDROID_LAYER_DP}dp"',
         f'    android:viewportWidth="{CANVAS}"',
         f'    android:viewportHeight="{CANVAS}">',
+    ]
+    if background:
+        corner = CANVAS * DESKTOP_PLATE_CORNER
+        end = CANVAS - corner
+        lines.extend([
+            f'  <path android:fillColor="{BACKGROUND}"',
+            f'      android:pathData="M{corner},0H{end}Q{CANVAS},0 {CANVAS},{corner}V{end}Q{CANVAS},{CANVAS} {end},{CANVAS}H{corner}Q0,{CANVAS} 0,{end}V{corner}Q0,0 {corner},0Z"/>',
+        ])
+    lines.extend([
         "  <group",
         f'      android:scaleX="{scale}"',
         f'      android:scaleY="{scale}"',
         f'      android:translateX="{x}"',
         f'      android:translateY="{y}">',
-    ]
+    ])
     for path in artwork.paths:
         lines.append("    <path")
         attributes = []
@@ -313,7 +325,12 @@ def emit_android(artworks: ArtworkSet, workspace: Path) -> None:
     write(resources / "drawable" / "ic_launcher_foreground.xml", android_vector(artworks.large, monochrome=False))
     write(resources / "drawable" / "ic_launcher_monochrome.xml", android_vector(artworks.large, monochrome=True))
     write(ROOT / "composeApp" / "src" / "commonMain" / "composeResources" / "drawable" / "ic_shiftvps.xml",
-          android_vector(artworks.small, monochrome=False, fraction=0.82))
+          android_vector(artworks.small, monochrome=False, fraction=0.72, background=True))
+    write(resources / "drawable" / "ic_shiftvps_notification.xml",
+          android_vector(artworks.small, monochrome=True, fraction=0.72))
+    for directory in (resources / "drawable", ROOT / "composeApp/src/commonMain/composeResources/drawable"):
+        for name in ("ic_service_active.xml", "ic_service_rest.xml"):
+            write(directory / name, android_vector(artworks.small, monochrome=True, fraction=0.72))
     write(
         resources / "values" / "ic_launcher_background.xml",
         '<?xml version="1.0" encoding="utf-8"?>\n'
@@ -388,7 +405,62 @@ def emit_linux(artworks: ArtworkSet) -> None:
     print(f"icon: wrote {destination.relative_to(ROOT)}")
 
 
+def emit_atlas(artworks: ArtworkSet, workspace: Path) -> None:
+    from PIL import Image, ImageDraw, ImageFont
+
+    font_path = ROOT / "composeApp/src/commonMain/composeResources/font/ibm_plex_sans_regular.ttf"
+    font = ImageFont.truetype(str(font_path), 16)
+    title_font = ImageFont.truetype(str(font_path), 20)
+    atlas = Image.new("RGBA", (1100, 720), "#F1F1F4")
+    draw = ImageDraw.Draw(atlas)
+    draw.rectangle((0, 0, 1100, 43), fill="#FFE8A3")
+    draw.text((18, 8), "PREVIEW / GENERATED ICONS / synthetic layout", fill="#191600", font=title_font)
+    draw.text((22, 62), "Windows ICO frames at native size", fill="#202026", font=title_font)
+    x = 25
+    for size in WINDOWS_SIZES:
+        path = workspace / f"atlas-{size}.png"
+        rasterize_plated(artworks, DESKTOP_PLATE, size, path)
+        with Image.open(path) as image:
+            atlas.alpha_composite(image.convert("RGBA"), (x, 112 + 256 - size))
+        draw.text((x, 383), f"{size}px", fill="#202026", font=font)
+        x += size + 38
+
+    draw.text((22, 432), "Android masks / themed / notification", fill="#202026", font=title_font)
+    adaptive = workspace / "adaptive.png"
+    rasterize(compose(artworks.large, Plate(BACKGROUND), ANDROID_MARK_FRACTION), 180, adaptive)
+    with Image.open(adaptive) as image:
+        for index, radius in enumerate((90, 38)):
+            mask = Image.new("L", image.size)
+            ImageDraw.Draw(mask).rounded_rectangle((0, 0, 179, 179), radius=radius, fill=255)
+            clipped = image.convert("RGBA")
+            clipped.putalpha(mask)
+            atlas.alpha_composite(clipped, (24 + index * 218, 474))
+    themed = workspace / "themed.png"
+    black_paths = [dict(path, fill="#25302A") for path in artworks.large.paths]
+    rasterize(compose(Artwork(black_paths, artworks.large.bounds), Plate("#C8E6D3"), ANDROID_MARK_FRACTION), 180, themed)
+    with Image.open(themed) as image:
+        mask = Image.new("L", image.size)
+        ImageDraw.Draw(mask).ellipse((0, 0, 179, 179), fill=255)
+        image = image.convert("RGBA")
+        image.putalpha(mask)
+        atlas.alpha_composite(image, (460, 474))
+    for x, background, foreground in ((692, "#F1F1F4", "#202026"), (884, "#08080B", "#EDEDF0")):
+        draw.rounded_rectangle((x, 474, x + 168, 654), radius=14, fill=background)
+        path = workspace / "notification.png"
+        paths = [dict(path, fill=foreground) for path in artworks.small.paths]
+        rasterize(compose(Artwork(paths, artworks.small.bounds), Plate(), 0.72), 24, path)
+        with Image.open(path) as image:
+            atlas.alpha_composite(image.convert("RGBA"), (x + 15, 493))
+            atlas.alpha_composite(image.convert("RGBA").resize((96, 96), Image.Resampling.NEAREST), (x + 52, 535))
+    for x, label in ((24, "Circle"), (242, "Squircle"), (460, "Themed"), (692, "24px / 4x"), (884, "24px / 4x")):
+        draw.text((x, 671), label, fill="#202026", font=font)
+    destination = ROOT / "art/icon-atlas.png"
+    atlas.convert("RGB").save(destination)
+    print(f"icon: wrote {destination.relative_to(ROOT)}")
+
+
 def main() -> None:
+    generate_wordmark()
     artworks = ArtworkSet(load_artwork(SOURCE_LARGE), load_artwork(SOURCE_SMALL))
     with tempfile.TemporaryDirectory() as directory:
         workspace = Path(directory)
@@ -396,6 +468,7 @@ def main() -> None:
         emit_windows(artworks, workspace)
         emit_macos(artworks, workspace)
         emit_linux(artworks)
+        emit_atlas(artworks, workspace)
 
 
 if __name__ == "__main__":

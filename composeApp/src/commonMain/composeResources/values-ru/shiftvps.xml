@@ -2,11 +2,11 @@
 <resources>
     <string name="shiftvps_open_app">Открыть ShiftVPS</string>
     <string name="shiftvps_sign_in">Войти</string>
-    <string name="shiftvps_sign_in_title">Войти в ShiftVPS</string>
-    <string name="shiftvps_sign_in_description">Используйте свой аккаунт ShiftVPS. Серверы появятся автоматически.</string>
-    <string name="shiftvps_sign_in_waiting">Подтвердите вход в браузере</string>
-    <string name="shiftvps_sign_in_code">Убедитесь, что в браузере указан такой же код.</string>
-    <string name="shiftvps_cancel">Отменить</string>
+    <string name="shiftvps_sign_in_title">Вход в аккаунт</string>
+    <string name="shiftvps_sign_in_waiting">Подтвердите вход</string>
+    <string name="shiftvps_sign_in_code">Сверьте код в браузере</string>
+    <string name="shiftvps_sign_in_failed">Не удалось войти</string>
+    <string name="shiftvps_cancel">Отмена</string>
     <string name="shiftvps_logout">Выйти</string>
     <string name="shiftvps_server_list">Серверы</string>
     <string name="shiftvps_sorted_by_latency">Быстрые и доступные — выше</string>
@@ -32,9 +32,8 @@
     <string name="shiftvps_updated_at">Обновлено в %1$s</string>
     <string name="shiftvps_retry">Повторить</string>
     <string name="shiftvps_dismiss">Скрыть</string>
-    <string name="shiftvps_browser_error">Не удалось открыть браузер. Попробуйте войти ещё раз.</string>
-    <string name="shiftvps_browser_sign_in_hint">Откроем ваш личный кабинет в браузере.</string>
-    <string name="shiftvps_waiting_confirmation">Ожидаем подтверждение</string>
+    <string name="shiftvps_browser_error">Браузер не открылся.</string>
+    <string name="shiftvps_browser_sign_in_hint">Откроется браузер</string>
     <string name="shiftvps_selected_server">Выбран</string>
     <string name="shiftvps_latency_label">задержка</string>
     <string name="shiftvps_auto_check">Проверяем при входе</string>

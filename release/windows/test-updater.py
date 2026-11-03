@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 from pathlib import Path
 import subprocess
+import struct
 import tempfile
 import zipfile
 
@@ -55,6 +56,7 @@ def compile_installer(compiler: Path, work: Path) -> None:
             "APP_VERSION": "0.1.1", "APP_VERSION_CODE": "2", "APP_DESCRIPTION": "ShiftVPS",
             "APP_URL": "https://shiftvps.ru", "MAINTAINER": "ShiftVPS", "VI_VERSION": "0.1.1.0",
             "OUTPUT_FILE": str(output), "LICENSE_FILE": str(stub), "LAUNCHER_FILE": str(stub),
+            "ICON_FILE": str(ROOT / "launcher/icon.ico"),
             "CORE_FILE": str(stub), "CORE_LIBRARY_NAME": "libcronet.dll", "CORE_LIBRARY_FILE": str(stub),
             "JAR_FILE": str(stub), "JAVA_OPTS_FILE": str(stub), "APP_ARGS_FILE": str(stub),
             "WINSPARKLE_FILE": str(work / "amd64/WinSparkle.dll"),
@@ -75,6 +77,10 @@ def compile_installer(compiler: Path, work: Path) -> None:
         if result.returncode:
             raise AssertionError(result.stdout + result.stderr)
         assert output.is_file() and output.stat().st_size > 0
+        ico = (ROOT / "launcher/icon.ico").read_bytes()
+        for index in range(struct.unpack_from("<H", ico, 4)[0]):
+            length, offset = struct.unpack_from("<II", ico, 6 + 16 * index + 8)
+            assert ico[offset:offset + length] in output.read_bytes(), "Installer lost a branded icon frame"
         print(f"NSIS compiler accepted {name} installer; installer was not executed")
 
 
