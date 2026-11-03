@@ -35,6 +35,9 @@ data class ShiftVpsUiState(
     val error: String? = null,
     val policyVersion: Int = 1,
     val lastUpdatedMillis: Long? = null,
+    val summary: ShiftVpsAccountSummary? = null,
+    val summaryLoading: Boolean = false,
+    val summaryError: String? = null,
 )
 
 sealed interface ShiftVpsEvent {
@@ -47,6 +50,45 @@ data class ShiftVpsAccount(
     val name: String = "",
     @SerialName("subscription_expires_at") val subscriptionExpiresAt: String? = null,
     @SerialName("access_active") val accessActive: Boolean = false,
+)
+
+@Serializable
+data class ShiftVpsAccountSummary(
+    val account: ShiftVpsAccountDetails,
+    val device: ShiftVpsAccountDevice,
+    val links: ShiftVpsAccountLinks,
+    val referral: ShiftVpsReferralSummary,
+)
+
+@Serializable
+data class ShiftVpsAccountDetails(
+    val name: String,
+    val phone: String,
+    @SerialName("subscription_expires_at") val subscriptionExpiresAt: String? = null,
+    @SerialName("access_active") val accessActive: Boolean,
+    @SerialName("is_free") val isFree: Boolean,
+    @SerialName("devices_used") val devicesUsed: Int,
+    @SerialName("device_limit") val deviceLimit: Int,
+)
+
+@Serializable
+data class ShiftVpsAccountDevice(val id: Long, val name: String)
+
+@Serializable
+data class ShiftVpsAccountLinks(
+    @SerialName("account_url") val accountUrl: String,
+    @SerialName("payment_url") val paymentUrl: String,
+    @SerialName("referral_url") val referralUrl: String,
+)
+
+@Serializable
+data class ShiftVpsReferralSummary(
+    @SerialName("invitation_url") val invitationUrl: String,
+    @SerialName("invited_count") val invitedCount: Int,
+    @SerialName("paid_count") val paidCount: Int,
+    @SerialName("rewarded_days") val rewardedDays: Int,
+    @SerialName("rewarded_months") val rewardedMonths: Int,
+    @SerialName("bonus_days") val bonusDays: Int,
 )
 
 @Serializable

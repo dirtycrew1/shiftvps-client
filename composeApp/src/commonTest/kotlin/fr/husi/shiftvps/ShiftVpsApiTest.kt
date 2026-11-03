@@ -13,6 +13,69 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ShiftVpsApiTest {
+    private val accountSummaryFixture = """{
+        "account":{"name":"Demo","phone":"+70000000000","subscription_expires_at":null,"access_active":false,"is_free":false,"devices_used":4,"device_limit":3},
+        "device":{"id":7,"name":"Phone"},
+        "links":{"account_url":"https://shiftvps.ru/dashboard","payment_url":"https://shiftvps.ru/pay","referral_url":"https://shiftvps.ru/referral"},
+        "referral":{"invitation_url":"https://shiftvps.ru/r/DEMO1234","invited_count":2,"paid_count":1,"rewarded_days":75,"rewarded_months":2,"bonus_days":30}
+    }"""
+
+    @Test
+    fun `account summary remains useful for inactive and over quota accounts without opening the feed`() = runTest {
+        val calls = mutableListOf<String>()
+        val api = ShiftVpsApi(object : ClientTransport {
+            override suspend fun request(method: String, url: String, token: String?, body: String?): ClientResponse {
+                calls.add("$method $url")
+                assertEquals("fixture-session", token)
+                return ClientResponse(200, accountSummaryFixture)
+            }
+        })
+        val summary = api.accountSummary("fixture-session")
+        assertFalse(summary.account.accessActive)
+        assertEquals(4, summary.account.devicesUsed)
+        assertEquals(3, summary.account.deviceLimit)
+        assertEquals(75, summary.referral.rewardedDays)
+        assertEquals(2, summary.referral.rewardedMonths)
+        assertEquals(listOf("GET https://shiftvps.ru/api/client/v1/account"), calls)
+    }
+
+    @Test
+    fun `account summary rejects misleading counts missing values and untrusted action URLs`() = runTest {
+        val sensitive = "fixture-private-value"
+        for (payload in listOf(
+            accountSummaryFixture.replace("https://shiftvps.ru/pay", "https://untrusted.invalid/$sensitive"),
+            accountSummaryFixture.replace("DEMO1234", "DEMO1234?token=$sensitive"),
+            accountSummaryFixture.replace("\"paid_count\":1", "\"paid_count\":3"),
+            accountSummaryFixture.replace("\"rewarded_months\":2", "\"rewarded_months\":3"),
+            accountSummaryFixture.replace("\"bonus_days\":30", "\"bonus_days\":365"),
+            accountSummaryFixture.replace("\"invited_count\":2,", ""),
+            "malformed-$sensitive",
+        )) {
+            val api = ShiftVpsApi(object : ClientTransport {
+                override suspend fun request(method: String, url: String, token: String?, body: String?) = ClientResponse(200, payload)
+            })
+            val error = assertFailsWith<ClientApiException> { api.accountSummary("fixture-session") }
+            assertEquals("invalid_account_summary", error.code)
+            assertFalse(error.message.orEmpty().contains(sensitive))
+            assertFalse(error.message.orEmpty().contains("untrusted.invalid"))
+        }
+    }
+
+    @Test
+    fun `account summary transport failure tries only the safe GET fallback and never synthesizes zero rewards`() = runTest {
+        val calls = mutableListOf<String>()
+        val api = ShiftVpsApi(object : ClientTransport {
+            override suspend fun request(method: String, url: String, token: String?, body: String?): ClientResponse {
+                calls.add("$method $url")
+                if (calls.size == 1) throw java.io.IOException("fixture-network-failure")
+                return ClientResponse(503, """{"error":"account_summary_unavailable"}""")
+            }
+        })
+        val error = assertFailsWith<ClientApiException> { api.accountSummary("fixture-session") }
+        assertEquals(503, error.status)
+        assertEquals(listOf("GET https://shiftvps.ru/api/client/v1/account", "GET https://web-backup.shiftvps.ru/api/client/v1/account"), calls)
+    }
+
     @Test
     fun `PKCE challenge matches the RFC7636 vector`() {
         assertEquals("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",

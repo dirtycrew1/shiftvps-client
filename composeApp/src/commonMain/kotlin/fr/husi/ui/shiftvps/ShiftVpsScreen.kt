@@ -148,6 +148,10 @@ fun ShiftVpsMainScreen(modifier: Modifier = Modifier) {
             onDismissError = { browserError = false; controller.dismissError() },
             updateState = updateState,
             onUpdate = holder.updater::install,
+            onRefreshSummary = controller::refreshSummary,
+            onOpenAccount = controller::openAccount,
+            onOpenPayment = controller::openPayment,
+            onOpenReferral = controller::openReferral,
         )
         MainScreenAuthChallengeDialogs(onDismissed = controller::permissionDenied)
     }

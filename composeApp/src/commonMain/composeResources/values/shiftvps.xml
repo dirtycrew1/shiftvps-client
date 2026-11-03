@@ -32,7 +32,7 @@
     <string name="shiftvps_updated_at">Updated %1$s</string>
     <string name="shiftvps_retry">Try again</string>
     <string name="shiftvps_dismiss">Dismiss</string>
-    <string name="shiftvps_browser_error">The browser did not open.</string>
+    <string name="shiftvps_browser_error">Could not open the browser.</string>
     <string name="shiftvps_browser_sign_in_hint">Opens in your browser</string>
     <string name="shiftvps_selected_server">Selected</string>
     <string name="shiftvps_latency_label">latency</string>

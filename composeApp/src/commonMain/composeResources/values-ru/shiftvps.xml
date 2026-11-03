@@ -14,7 +14,7 @@
     <string name="shiftvps_refreshing">Обновляем серверы…</string>
     <string name="shiftvps_checking_servers">Проверяем серверы…</string>
     <string name="shiftvps_check_servers">Проверить соединение</string>
-    <string name="shiftvps_no_servers">Пока нет доступных серверов</string>
+    <string name="shiftvps_no_servers">Нет доступных серверов</string>
     <string name="shiftvps_no_servers_description">Обновите список. Если серверы не появятся, проверьте подписку в личном кабинете.</string>
     <string name="shiftvps_select_server">Выберите сервер</string>
     <string name="shiftvps_connected">Подключено</string>
@@ -32,7 +32,7 @@
     <string name="shiftvps_updated_at">Обновлено в %1$s</string>
     <string name="shiftvps_retry">Повторить</string>
     <string name="shiftvps_dismiss">Скрыть</string>
-    <string name="shiftvps_browser_error">Браузер не открылся.</string>
+    <string name="shiftvps_browser_error">Не удалось открыть браузер.</string>
     <string name="shiftvps_browser_sign_in_hint">Откроется браузер</string>
     <string name="shiftvps_selected_server">Выбран</string>
     <string name="shiftvps_latency_label">задержка</string>

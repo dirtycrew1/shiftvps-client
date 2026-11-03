@@ -146,6 +146,28 @@ internal class ShiftVpsApi(private val transport: ClientTransport = HttpsClientT
 
     suspend fun feed(token: String): String = request("GET", "/feed", token)
 
+    suspend fun accountSummary(token: String): ShiftVpsAccountSummary {
+        val response = request("GET", "/account", token)
+        return try {
+            clientJson.decodeFromString<ShiftVpsAccountSummary>(response).also { summary ->
+                require(summary.device.id > 0 && summary.device.name.length <= 200)
+                require(summary.account.name.length <= 200 && summary.account.phone.length <= 64)
+                require(summary.account.devicesUsed >= 0 && summary.account.deviceLimit > 0)
+                require(summary.links.accountUrl == ACCOUNT_PAGE && summary.links.paymentUrl == PAYMENT_PAGE)
+                require(summary.links.referralUrl == REFERRAL_PAGE)
+                val referral = summary.referral
+                require(referral.invitationUrl.matches(Regex("https://shiftvps\\.ru/r/[A-Za-z0-9_-]{6,64}")))
+                require(referral.invitedCount >= 0 && referral.paidCount in 0..referral.invitedCount)
+                require(referral.rewardedDays >= 0 && referral.rewardedMonths == referral.rewardedDays / 30)
+                require(referral.bonusDays == 30)
+            }
+        } catch (_: SerializationException) {
+            throw ClientApiException("invalid_account_summary")
+        } catch (_: IllegalArgumentException) {
+            throw ClientApiException("invalid_account_summary")
+        }
+    }
+
     suspend fun logout(token: String) { request("POST", "/logout", token, "{}") }
 
     suspend fun metrics(token: String, events: List<ClientMetric>, batchId: String? = null) {
@@ -180,6 +202,11 @@ internal class ShiftVpsApi(private val transport: ClientTransport = HttpsClientT
         private val API_ERRORS = setOf(
             "authorization_pending", "slow_down", "expired_token", "access_denied", "invalid_grant",
             "invalid_token", "token_expired", "subscription_expired", "device_limit", "device_deleted", "unauthorized",
+            "account_summary_unavailable",
         )
     }
 }
+
+internal const val ACCOUNT_PAGE = "https://shiftvps.ru/dashboard"
+internal const val PAYMENT_PAGE = "https://shiftvps.ru/pay"
+internal const val REFERRAL_PAGE = "https://shiftvps.ru/referral"

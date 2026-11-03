@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shiftvps_tab_connection">Подключение</string>
+    <string name="shiftvps_tab_account">Аккаунт</string>
+    <string name="shiftvps_tab_invitations">Приглашения</string>
+    <string name="shiftvps_account_active">Доступ активен</string>
+    <string name="shiftvps_account_inactive">Подписка неактивна</string>
+    <string name="shiftvps_account_free">Бессрочный доступ</string>
+    <string name="shiftvps_account_until">Доступ до</string>
+    <string name="shiftvps_account_phone">Телефон</string>
+    <string name="shiftvps_account_devices">Устройства</string>
+    <string name="shiftvps_account_device_count">%1$d из %2$d</string>
+    <string name="shiftvps_account_this_device">Это устройство</string>
+    <string name="shiftvps_account_renew">Продлить доступ</string>
+    <string name="shiftvps_account_browser">Личный кабинет</string>
+    <string name="shiftvps_account_loading">Загружаем данные…</string>
+    <string name="shiftvps_account_unavailable">Данные аккаунта пока недоступны.</string>
+    <string name="shiftvps_invite_title">Пригласите друга</string>
+    <string name="shiftvps_invite_description">Получите 30 дней после его первой оплаты. При возврате оплаты бонус отменяется.</string>
+    <string name="shiftvps_invite_invited">Приглашено</string>
+    <string name="shiftvps_invite_paid">Оплатили</string>
+    <string name="shiftvps_invite_rewarded">Начислено</string>
+    <string name="shiftvps_invite_days">%1$d дн.</string>
+    <string name="shiftvps_invite_copy">Скопировать ссылку</string>
+    <string name="shiftvps_invite_copied">Ссылка скопирована</string>
+    <string name="shiftvps_invite_copy_failed">Не удалось скопировать. Попробуйте ещё раз.</string>
+    <string name="shiftvps_invite_more">Подробнее о бонусах</string>
+</resources>

@@ -195,6 +195,14 @@ Both content paths use LazyColumn. Status-bar and navigation-bar insets are appl
 
 Every fixture visibly says “ПРЕДПРОСМОТР · пример данных” and constructs no account controller, core, network client or installer. These are shared-layout previews, not captures from Android, Windows or either macOS architecture. Real-device connection behavior, large font scales, OS insets and keyboard behavior, screen readers and performance remain unverified by these fixtures. Verification must not establish a VPN connection on the development PC.
 
+### Account and invitations, 2026-11-03
+
+The signed-in surface now has three labelled tabs: Connection, Account and Invitations. Tab selection is local UI state and does not select a server or toggle the VPN. Account shows the owned subscription and device summary; payment and account management open the existing website. Lifetime access hides the renewal action. Invitations shows the public invite link and actual aggregate counts, including earned days without rounding away historical remainders.
+
+The current policy grants 30 days after each invited user's first successful payment. Renewals do not award another bonus. A refunded new-policy payment cancels the awarded 30 days once; historical rewards and balances retain their original rules.
+
+The current gallery replaces the six-fixture review above with 56 pure Compose renders: 28 states at both 390 × 844 and 460 × 760. Demonstration labels live in the gallery, outside the application image. Fixtures use demonstration account data and instantiate no account controller, core, network client or installer. The current focused verification covers 83 tests, including account API parsing and UI semantics. These renders still do not establish real-device, OS-inset, large-font or screen-reader behavior.
+
 ## Elevation & Depth
 
 Depth comes mainly from tonal surfaces and thin borders. The dotted ground is drawn natively with a 22 dp interval, 0.65 dp radius and a quiet fade down the screen. The enabled primary action alone uses a native Compose shadow at 10 dp elevation, transparent ambient color and a blue spot color (0x663E4FBD). There is no invented CSS shadow token for that native renderer.

@@ -82,6 +82,7 @@ class ShiftVpsController : AutoCloseable {
     private var loginJob: Job? = null
     private var foregroundJob: Job? = null
     private var connectTimeoutJob: Job? = null
+    private var summaryJob: Job? = null
     private var sessionGeneration = 0
     private var policy = ShiftVpsPolicy()
     private var account: ShiftVpsAccount? = null
@@ -241,6 +242,49 @@ class ShiftVpsController : AutoCloseable {
     fun dismissError() { state.update { it.copy(error = null) } }
 
     fun refresh() { scope.launch { syncAndProbe(true) } }
+    fun refreshSummary() {
+        if (!state.value.signedIn || summaryJob?.isActive == true) return
+        summaryJob = scope.launch {
+            val generation = sessionGeneration
+            val token = summaryToken()
+            if (generation != sessionGeneration) return@launch
+            if (token == null) {
+                state.update { it.copy(summaryError = "Не удалось загрузить данные аккаунта.") }
+                return@launch
+            }
+            state.update { it.copy(summaryLoading = true, summaryError = null) }
+            try {
+                val summary = api.accountSummary(token)
+                if (!state.value.signedIn || summaryToken() != token) return@launch
+                state.update { it.copy(summary = summary, accountName = summary.account.name) }
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                if (!state.value.signedIn || summaryToken() != token) return@launch
+                if (generation == sessionGeneration && error is ClientApiException && error.status == 401) {
+                    handleFailure(error)
+                } else {
+                    state.update { it.copy(summaryError = "Не удалось загрузить данные аккаунта.") }
+                }
+            } finally {
+                if (generation == sessionGeneration || state.value.signedIn && summaryToken() == token) {
+                    state.update { it.copy(summaryLoading = false) }
+                }
+            }
+        }
+    }
+
+    fun openAccount() { openPage(ACCOUNT_PAGE) }
+    fun openPayment() { openPage(PAYMENT_PAGE) }
+    fun openReferral() { openPage(REFERRAL_PAGE) }
+    private fun openPage(url: String) { scope.launch { eventQueue.send(ShiftVpsEvent.OpenBrowser(url)) } }
+
+    private suspend fun summaryToken(): String? = try {
+        currentToken()
+    } catch (error: Exception) {
+        if (error is CancellationException) throw error
+        null
+    }
+
     fun checkServers() {
         scope.launch { surveySafely() }
     }
@@ -311,13 +355,15 @@ class ShiftVpsController : AutoCloseable {
 
     fun logout() {
         sessionGeneration++
+        summaryJob?.cancel()
         metricOwner = null
         metrics.clear()
         prepareServiceMetrics(null, policy.version)
         loginJob?.cancel()
         connectionPending = false
         while (eventQueue.tryReceive().isSuccess) { /* Discard actions from the previous session. */ }
-        state.update { it.copy(signedIn = false, servers = emptyList(), selectedId = null, authCode = null, loading = true) }
+        state.update { it.copy(signedIn = false, servers = emptyList(), selectedId = null, authCode = null, loading = true,
+            summary = null, summaryLoading = false, summaryError = null) }
         repository.stopService()
         scope.launch {
             try {
@@ -351,6 +397,7 @@ class ShiftVpsController : AutoCloseable {
 
     private suspend fun syncAndProbe(probe: Boolean) {
         if (!operation.tryLock()) return
+        refreshSummary()
         var shouldProbe = false
         val generation = sessionGeneration
         state.update { it.copy(refreshing = true) }
@@ -523,7 +570,9 @@ class ShiftVpsController : AutoCloseable {
             cachedVerificationTime.set(0L)
             cachedAccount.set("")
             if (error.status == 401) tokenAccess.withLock { tokens.clear() }
-            state.update { it.copy(servers = emptyList(), selectedId = null, signedIn = error.status != 401) }
+            state.update { it.copy(servers = emptyList(), selectedId = null, signedIn = error.status != 401,
+                summary = if (error.status == 401 || error.code == "device_deleted") null else it.summary,
+                summaryLoading = false) }
         }
         val message = if (error is ClientApiException && error.code == "unsupported_transport") {
             "В подписке нет совместимых подключений. Обновите приложение или обратитесь в поддержку."

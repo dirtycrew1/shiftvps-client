@@ -26,8 +26,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -38,7 +36,13 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,12 +52,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -77,6 +83,8 @@ import java.util.Date
 private val CardShape = RoundedCornerShape(20.dp)
 private val ButtonShape = RoundedCornerShape(12.dp)
 
+internal enum class ShiftVpsTab { Connection, Account, Invitations }
+
 @Composable
 internal fun ShiftVpsScreen(
     state: ShiftVpsUiState,
@@ -92,7 +100,12 @@ internal fun ShiftVpsScreen(
     browserError: Boolean = false,
     updateState: ShiftVpsUpdateState = ShiftVpsUpdateState(),
     onUpdate: () -> Unit = {},
+    onRefreshSummary: () -> Unit = {},
+    onOpenAccount: () -> Unit = {},
+    onOpenPayment: () -> Unit = {},
+    onOpenReferral: () -> Unit = {},
 ) {
+    var selectedTab by remember(state.signedIn) { mutableStateOf(ShiftVpsTab.Connection) }
     ShiftVpsTheme {
         Surface(modifier.fillMaxSize(), color = ShiftVpsPalette.Background) {
             Box(Modifier.fillMaxSize().drawBehind {
@@ -113,14 +126,19 @@ internal fun ShiftVpsScreen(
                     Modifier.widthIn(max = 560.dp).fillMaxWidth().fillMaxSize()
                         .statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp),
                 ) {
-                    BrandHeader(state, onLogout)
+                    BrandHeader(state)
                     val error = if (browserError) stringResource(Res.string.shiftvps_browser_error) else state.error
                     if (state.signedIn) {
-                        ServerContent(state, updateState, error, onRefresh, onCheckServers, onSelectServer,
-                            onToggleConnection, onDismissError, onUpdate, Modifier.weight(1f))
+                        ShiftVpsTabs(selectedTab) { selectedTab = it }
+                        when (selectedTab) {
+                            ShiftVpsTab.Connection -> ServerContent(state, updateState, error, onRefresh, onCheckServers, onSelectServer,
+                                onToggleConnection, onDismissError, onUpdate, Modifier.weight(1f))
+                            else -> ShiftVpsAccountContent(state, selectedTab, onRefreshSummary, onOpenAccount,
+                                onOpenPayment, onOpenReferral, onLogout, Modifier.weight(1f))
+                        }
                     } else {
                         SignInContent(state, updateState, error, onSignIn, onCancelLogin,
-                            onUpdate, Modifier.weight(1f))
+                            onUpdate, onOpenPayment, Modifier.weight(1f))
                     }
                 }
             }
@@ -129,7 +147,7 @@ internal fun ShiftVpsScreen(
 }
 
 @Composable
-private fun BrandHeader(state: ShiftVpsUiState, onLogout: () -> Unit) {
+private fun BrandHeader(state: ShiftVpsUiState) {
     Row(Modifier.fillMaxWidth().heightIn(min = 84.dp),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
@@ -143,9 +161,22 @@ private fun BrandHeader(state: ShiftVpsUiState, onLogout: () -> Unit) {
                     modifier = Modifier.padding(top = 2.dp, end = 12.dp))
             }
         }
-        if (state.signedIn) {
-            TextButton(onLogout, enabled = !state.loading, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(stringResource(Res.string.shiftvps_logout), color = ShiftVpsPalette.Muted)
+    }
+}
+
+@Composable
+private fun ShiftVpsTabs(selectedTab: ShiftVpsTab, onSelect: (ShiftVpsTab) -> Unit) {
+    PrimaryTabRow(selectedTab.ordinal, containerColor = Color.Transparent, contentColor = ShiftVpsPalette.Accent,
+        divider = { HorizontalDivider(color = ShiftVpsPalette.Border) }) {
+        ShiftVpsTab.entries.forEach { tab ->
+            Tab(selected = tab == selectedTab, onClick = { onSelect(tab) },
+                selectedContentColor = ShiftVpsPalette.Text, unselectedContentColor = ShiftVpsPalette.Muted) {
+                Text(stringResource(when (tab) {
+                    ShiftVpsTab.Connection -> Res.string.shiftvps_tab_connection
+                    ShiftVpsTab.Account -> Res.string.shiftvps_tab_account
+                    ShiftVpsTab.Invitations -> Res.string.shiftvps_tab_invitations
+                }), style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center,
+                    modifier = Modifier.heightIn(min = 48.dp).padding(horizontal = 4.dp, vertical = 14.dp))
             }
         }
     }
@@ -159,6 +190,7 @@ private fun SignInContent(
     onSignIn: () -> Unit,
     onCancel: () -> Unit,
     onUpdate: () -> Unit,
+    onOpenPayment: () -> Unit,
     modifier: Modifier,
 ) {
     val waiting = state.authCode != null && error == null
@@ -210,6 +242,11 @@ private fun SignInContent(
                             Text(stringResource(Res.string.shiftvps_browser_sign_in_hint), style = MaterialTheme.typography.bodySmall,
                                 color = ShiftVpsPalette.Muted, textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth().padding(top = 16.dp))
+                        }
+                    }
+                    if (!waiting) {
+                        TextButton(onOpenPayment, modifier = Modifier.heightIn(min = 48.dp).padding(top = 8.dp)) {
+                            Text(stringResource(Res.string.shiftvps_account_renew), style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
@@ -364,31 +401,52 @@ private fun ConnectionCard(state: ShiftVpsUiState, installing: Boolean, onToggle
                 else -> Res.string.shiftvps_connect
             }), onToggleConnection,
                 enabled = state.serviceState != ServiceState.Stopping && (state.serviceState.canStop ||
-                    (!installing && !state.loading && selectedServer != null)), busy = busy, secondary = connected)
+                    (!installing && !state.loading && selectedServer != null)), busy = busy, secondary = connected,
+                leadingBolt = !connected && !busy)
         }
     }
 }
 
 @Composable
-private fun BrandButton(text: String, onClick: () -> Unit, enabled: Boolean = true, busy: Boolean = false, secondary: Boolean = false) {
+internal fun BrandButton(text: String, onClick: () -> Unit, enabled: Boolean = true, busy: Boolean = false,
+    secondary: Boolean = false, leadingBolt: Boolean = false) {
     val fill = if (secondary || !enabled) Brush.verticalGradient(listOf(ShiftVpsPalette.CardRaised, ShiftVpsPalette.CardRaised))
         else Brush.verticalGradient(listOf(ShiftVpsPalette.ButtonTop, ShiftVpsPalette.ButtonBottom))
-    Button(onClick, enabled = enabled,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+    Surface(onClick = onClick, enabled = enabled,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).semantics { role = Role.Button }
             .then(if (enabled && !secondary) Modifier.shadow(10.dp, ButtonShape,
-                ambientColor = Color.Transparent, spotColor = Color(0x663E4FBD)) else Modifier)
-            .clip(ButtonShape).background(fill)
-            .then(if (secondary) Modifier.border(1.dp, ShiftVpsPalette.Border, ButtonShape) else Modifier),
+                ambientColor = Color.Transparent, spotColor = Color(0x663E4FBD)) else Modifier),
         shape = ButtonShape,
-        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = Color.White,
-            disabledContainerColor = Color.Transparent, disabledContentColor = ShiftVpsPalette.Muted),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
+        color = Color.Transparent, contentColor = if (enabled) Color.White else ShiftVpsPalette.Muted,
+        border = if (secondary) BorderStroke(1.dp, ShiftVpsPalette.Border) else null,
     ) {
-        if (busy) {
-            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = if (enabled) Color.White else ShiftVpsPalette.Muted)
-            Spacer(Modifier.width(10.dp))
+        Row(Modifier.fillMaxWidth().background(fill).heightIn(min = 56.dp).padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            if (busy) {
+                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = if (enabled) Color.White else ShiftVpsPalette.Muted)
+                Spacer(Modifier.width(10.dp))
+            } else if (leadingBolt) {
+                LightningMark(if (enabled) Color.White else ShiftVpsPalette.Muted, Modifier.size(18.dp))
+                Spacer(Modifier.width(9.dp))
+            }
+            Text(text, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
         }
-        Text(text, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+private fun LightningMark(color: Color, modifier: Modifier) {
+    Canvas(modifier) {
+        val bolt = Path().apply {
+            moveTo(size.width * 0.58f, 0f)
+            lineTo(size.width * 0.13f, size.height * 0.56f)
+            lineTo(size.width * 0.43f, size.height * 0.56f)
+            lineTo(size.width * 0.35f, size.height)
+            lineTo(size.width * 0.88f, size.height * 0.4f)
+            lineTo(size.width * 0.56f, size.height * 0.4f)
+            close()
+        }
+        drawPath(bolt, color)
     }
 }
 

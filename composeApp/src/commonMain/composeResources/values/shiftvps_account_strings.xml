@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shiftvps_tab_connection">Connection</string>
+    <string name="shiftvps_tab_account">Account</string>
+    <string name="shiftvps_tab_invitations">Invitations</string>
+    <string name="shiftvps_account_active">Access is active</string>
+    <string name="shiftvps_account_inactive">Subscription inactive</string>
+    <string name="shiftvps_account_free">Lifetime access</string>
+    <string name="shiftvps_account_until">Access until</string>
+    <string name="shiftvps_account_phone">Phone</string>
+    <string name="shiftvps_account_devices">Devices</string>
+    <string name="shiftvps_account_device_count">%1$d of %2$d</string>
+    <string name="shiftvps_account_this_device">This device</string>
+    <string name="shiftvps_account_renew">Renew access</string>
+    <string name="shiftvps_account_browser">Account in browser</string>
+    <string name="shiftvps_account_loading">Loading account…</string>
+    <string name="shiftvps_account_unavailable">Account details are unavailable.</string>
+    <string name="shiftvps_invite_title">Invite a friend</string>
+    <string name="shiftvps_invite_description">Get 30 days after their first payment. The bonus is removed if the payment is refunded.</string>
+    <string name="shiftvps_invite_invited">Invited</string>
+    <string name="shiftvps_invite_paid">Paid</string>
+    <string name="shiftvps_invite_rewarded">Earned</string>
+    <string name="shiftvps_invite_days">%1$d days</string>
+    <string name="shiftvps_invite_copy">Copy invitation link</string>
+    <string name="shiftvps_invite_copied">Link copied</string>
+    <string name="shiftvps_invite_copy_failed">Could not copy the link. Try again.</string>
+    <string name="shiftvps_invite_more">About referral rewards</string>
+</resources>
