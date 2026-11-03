@@ -44,4 +44,43 @@ unset DESKTOP_URL_SCHEMES
     done
 )
 
+# Exercise the real compiler argument vector without compiling or running a helper.
+(
+    frameworks_dir='/fixture path/Frameworks'
+    helper_contents='/fixture path/Contents'
+    source_dir='/fixture path/source'
+    xcrun() {
+        [[ "$#" -ge 6 && "$1" == '--sdk' && "$2" == macosx && "$3" == clang ]]
+        [[ "$4" == '-arch' && "$5" == "$native_arch" && "$6" == '-mmacosx-version-min=13.0' ]]
+        local argument direct_count=0 members_count=0
+        for argument in "$@"; do
+            case "$argument" in
+                -DSPU_OBJC_DIRECT=*)
+                    [[ "$argument" == '-DSPU_OBJC_DIRECT=__attribute__((objc_direct))' ]]
+                    direct_count=$((direct_count + 1))
+                    ;;
+                -DSPU_OBJC_DIRECT_MEMBERS=*)
+                    [[ "$argument" == '-DSPU_OBJC_DIRECT_MEMBERS=__attribute__((objc_direct_members))' ]]
+                    members_count=$((members_count + 1))
+                    ;;
+            esac
+        done
+        if [[ "$direct_count" -ne 1 || "$members_count" -ne 1 ]]; then
+            printf 'Sparkle CLI needs both upstream Objective-C direct attributes.\n' >&2
+            return 1
+        fi
+        compiler_calls=$((compiler_calls + 1))
+    }
+    compiler_invocation="$(awk '
+        /^    xcrun / { capture = 1 }
+        capture { print; if ($0 !~ /\\$/) exit }
+    ' "$SCRIPT_DIR/sparkle.sh")"
+    [[ -n "$compiler_invocation" ]]
+    for native_arch in arm64 x86_64; do
+        compiler_calls=0
+        eval "$compiler_invocation"
+        [[ "$compiler_calls" -eq 1 ]]
+    done
+)
+
 printf 'Package metadata checks passed with Bash %s.\n' "$BASH_VERSION"

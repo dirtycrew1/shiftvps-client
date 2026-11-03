@@ -85,7 +85,10 @@ SOURCES
     mv "$frameworks_dir/LICENSE" "$helper_contents/Resources/Sparkle-LICENSE.txt"
     lipo "$frameworks_dir/Sparkle.framework/Sparkle" -verify_arch "$native_arch"
 
+    # ConfigCommon.xcconfig supplies these attributes in Sparkle's Xcode build.
     xcrun --sdk macosx clang -arch "$native_arch" -mmacosx-version-min=13.0 \
+        '-DSPU_OBJC_DIRECT=__attribute__((objc_direct))' \
+        '-DSPU_OBJC_DIRECT_MEMBERS=__attribute__((objc_direct_members))' \
         -fobjc-arc -O2 -F "$frameworks_dir" -framework Cocoa -framework Sparkle \
         -Wl,-rpath,@executable_path/../Frameworks \
         "$source_dir/main.m" "$source_dir/SPUCommandLineDriver.m" \

@@ -15,12 +15,18 @@ on:
         required: false
         default: false
         type: boolean
+      macos-only:
+        description: Build only macOS Apple Silicon and Intel artifacts
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
 
 jobs:
   android:
+    if: ${{ !inputs.macos-only }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source code
@@ -87,33 +93,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - id: linux-amd64
-            runner: ubuntu-latest
-            target: linux/amd64
-            package: linux
-            formats: "deb,rpm,pacman,tarball,appimage"
-            appimage_runtime: x86_64
-            apt_packages: zstd
-          - id: linux-arm64
-            runner: ubuntu-latest
-            target: linux/arm64
-            package: linux
-            formats: "deb,rpm,pacman,tarball,appimage"
-            appimage_runtime: aarch64
-            apt_packages: zstd binutils-aarch64-linux-gnu
-          # windows/arm64 is temporarily out: androidx sqlite-bundled ships no windows_arm64
-          # libsqliteJni, so the app cannot open its database there.
-          # See https://issuetracker.google.com/issues/426464784
-          - id: windows-amd64
-            runner: ubuntu-latest
-            target: windows/amd64
-            package: windows
-            apt_packages: nsis osslsigncode
-          - id: darwin-arm64
-            runner: macos-26-intel
-            target: darwin/arm64
-            package: macos
+        # Select before expansion: GitHub processes exclude before include.
+        # windows/arm64 remains disabled: https://issuetracker.google.com/issues/426464784
+        include: >-
+          ${{ fromJSON(inputs.macos-only && '[
+            {"id":"darwin-arm64","runner":"macos-26-intel","target":"darwin/arm64","package":"macos"}
+          ]' || '[
+            {"id":"linux-amd64","runner":"ubuntu-latest","target":"linux/amd64","package":"linux",
+             "formats":"deb,rpm,pacman,tarball,appimage","appimage_runtime":"x86_64","apt_packages":"zstd"},
+            {"id":"linux-arm64","runner":"ubuntu-latest","target":"linux/arm64","package":"linux",
+             "formats":"deb,rpm,pacman,tarball,appimage","appimage_runtime":"aarch64","apt_packages":"zstd binutils-aarch64-linux-gnu"},
+            {"id":"windows-amd64","runner":"ubuntu-latest","target":"windows/amd64","package":"windows",
+             "apt_packages":"nsis osslsigncode"},
+            {"id":"darwin-arm64","runner":"macos-26-intel","target":"darwin/arm64","package":"macos"}
+          ]') }}
     steps:
       - name: Checkout source code
         uses: actions/checkout@v7
