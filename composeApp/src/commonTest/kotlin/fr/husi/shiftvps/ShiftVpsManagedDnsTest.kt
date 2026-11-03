@@ -75,7 +75,7 @@ class ShiftVpsManagedDnsTest {
         assertEquals(servers.size,servers.map { it["tag"] }.distinct().size)
         assertEquals("https",servers.single { it["tag"]=="shiftvps-fake-dns" }["type"])
         val rules=(options["route"] as Map<*,*>)["rules"] as List<Map<String,Any?>>
-        assertEquals("hijack-dns",rules.first()["action"])
+        assertEquals("sniff",rules.first()["action"])
         assertEquals(1,rules.count { it==mapOf("action" to "sniff") })
     }
 

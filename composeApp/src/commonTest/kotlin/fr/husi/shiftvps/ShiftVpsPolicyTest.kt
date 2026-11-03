@@ -35,8 +35,8 @@ class ShiftVpsPolicyTest {
         )
         enforceManagedRouting(options)
         val rules = (options["route"] as Map<*, *>)["rules"] as List<*>
-        assertEquals("hijack-dns", (rules[0] as Map<*, *>)["action"])
-        assertEquals("sniff", (rules[1] as Map<*, *>)["action"])
+        assertEquals("sniff", (rules[0] as Map<*, *>)["action"])
+        assertEquals("hijack-dns", (rules[1] as Map<*, *>)["action"])
         val ru = rules.map { it as Map<*, *> }.single { "domain_suffix" in it }
         assertEquals(listOf("ru"), ru["domain_suffix"])
         assertEquals(MANAGED_DIRECT_TAG, ru["outbound"])
@@ -72,7 +72,7 @@ class ShiftVpsPolicyTest {
         val options: JSONMap = mutableMapOf("route" to mapOf("rules" to preprocessing + proxy))
         enforceManagedRouting(options)
         val rules = (options["route"] as Map<*, *>)["rules"] as List<*>
-        assertEquals(listOf(preprocessing[1],preprocessing[0],preprocessing[2],preprocessing[3]), rules.take(4))
+        assertEquals(preprocessing, rules.take(4))
         assertEquals(listOf("ru"), rules.map { it as Map<*, *> }.single { "domain_suffix" in it }["domain_suffix"])
         assertEquals(listOf(22), (rules[rules.lastIndex-1] as Map<*, *>)["port"])
         assertEquals(proxy, rules.last())

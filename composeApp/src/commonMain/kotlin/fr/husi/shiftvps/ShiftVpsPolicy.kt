@@ -53,9 +53,7 @@ fun enforceManagedRouting(options: JSONMap) {
         linkedMapOf<String, Any?>("domain" to listOf(name), "action" to "route", "outbound" to MANAGED_DIRECT_TAG, "override_address" to name)
     }
     rules.removeAll { it == sniff || it == guard || it == sshGuard || it in namedDirect }
-    val beforeSniff = rules.indexOfFirst { (it as? Map<*, *>)?.get("action") != "hijack-dns" }
-        .let { if (it < 0) rules.size else it }
-    rules.add(beforeSniff, sniff)
+    rules.add(0, sniff)
     val firstRoutingRule = rules.indexOfFirst { item ->
         val action = (item as? Map<*, *>)?.get("action")
         action !in setOf("sniff", "hijack-dns", "route-options", "resolve")
