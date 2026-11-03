@@ -1,0 +1,3 @@
+<resources>
+    <string name="shiftvps_android_lockdown_notice">To let apps connect directly, turn off “Block connections without VPN” in Android settings.</string>
+</resources>

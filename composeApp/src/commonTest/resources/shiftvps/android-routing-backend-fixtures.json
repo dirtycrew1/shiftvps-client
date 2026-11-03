@@ -1,0 +1,1512 @@
+{
+  "contract": "optional routing.direct_android_packages",
+  "max_entries_before_dedup": 64,
+  "max_ASCII_chars": 128,
+  "default_when_missing": [],
+  "regex": "[A-Za-z_][A-Za-z0-9_]*(?:[.][A-Za-z_][A-Za-z0-9_]*)+",
+  "fixtures_are_demonstration_policy_not_live_config": true,
+  "cases": [
+    {
+      "name": "legacy_missing",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": true,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "optional_empty",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": []
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": true,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "requested_three",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "ru.oneme.app",
+            "ru.yandex.taxi",
+            "ru.rostel"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": true,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "maximum64x128",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "org.fixture.app0xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app2xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app3xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app4xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app5xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app6xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app7xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app8xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app9xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app10xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app11xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app12xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app13xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app14xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app15xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app16xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app17xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app18xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app19xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app20xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app21xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app22xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app23xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app24xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app25xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app26xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app27xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app28xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app29xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app30xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app31xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app32xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app33xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app34xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app35xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app36xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app37xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app38xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app39xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app40xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app41xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app42xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app43xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app44xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app45xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app46xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app47xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app48xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app49xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app50xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app51xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app52xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app53xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app54xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app55xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app56xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app57xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app58xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app59xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app60xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app61xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app62xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "org.fixture.app63xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": true,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "duplicates64_counted_before_dedup",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": true,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "over_count65",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat",
+            "org.example.chat"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "over_length129",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "org.example.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "wildcard",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "org.example.*"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "unicode",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "org.ex\u0430mple.chat"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "null",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": null
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_android_0",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "android"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_android_1",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "android.fixture"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_com.android_0",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.android"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_com.android_1",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.android.fixture"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_com.brave.browser_0",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.brave.browser"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_com.brave.browser_1",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.brave.browser.fixture"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_com.google_0",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.google"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_com.google_1",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.google.fixture"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_com.huawei_0",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.huawei"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_com.huawei_1",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.huawei.fixture"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_com.microsoft.emmx_0",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.microsoft.emmx"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_com.microsoft.emmx_1",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.microsoft.emmx.fixture"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_com.opera_0",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.opera"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_com.opera_1",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.opera.fixture"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_com.sec.android.app.sbrowser_0",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.sec.android.app.sbrowser"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_com.sec.android.app.sbrowser_1",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.sec.android.app.sbrowser.fixture"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_com.yandex.browser_0",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.yandex.browser"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_com.yandex.browser_1",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.yandex.browser.fixture"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_org.mozilla_0",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "org.mozilla"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_org.mozilla_1",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "org.mozilla.fixture"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_ru.shiftvps.client_0",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "ru.shiftvps.client"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_ru.shiftvps.client_1",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "ru.shiftvps.client.fixture"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_ru.yandex.searchplugin_0",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "ru.yandex.searchplugin"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "protected_ru.yandex.searchplugin_1",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "ru.yandex.searchplugin.fixture"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": false,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "lookalike_0",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.androidlookalike.fixture"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": true,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "lookalike_1",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "com.googletools.fixture"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": true,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "lookalike_2",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "org.mozillax.fixture"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": true,
+      "legacy_0_1_8_ignores_optional_field": true
+    },
+    {
+      "name": "lookalike_3",
+      "policy": {
+        "version": 1,
+        "routing": {
+          "direct_domain_suffixes": [
+            "ru"
+          ],
+          "direct_android_packages": [
+            "ru.shiftvps.clienttools"
+          ]
+        },
+        "dns": {
+          "direct": "system",
+          "proxy": "quad9",
+          "strategy": "prefer_ipv4"
+        },
+        "latency": {
+          "probe_on_launch": true,
+          "timeout_ms": 5000,
+          "concurrency": 3,
+          "interval_s": 300,
+          "test_url": "https://www.gstatic.com/generate_204"
+        },
+        "refresh_interval_s": 300,
+        "connect_timeout_ms": 10000,
+        "telemetry": {
+          "enabled": true,
+          "batch_interval_s": 30
+        }
+      },
+      "valid_backend_and_new_client": true,
+      "legacy_0_1_8_ignores_optional_field": true
+    }
+  ],
+  "legacy_source_proof": {
+    "commit": "76269e2ae1729b1d03132afb10999f5c67c50cee",
+    "ignore_unknown_keys_true": true,
+    "old_routing_has_only_ru_suffix": true,
+    "source_sha256": {
+      "ShiftVpsModels.kt": "d9a4a204c150c078a1bdb4a714251251d6064b7ba7e919d20da69aaeb9517b46",
+      "ShiftVpsApi.kt": "ec672ef619f79a5fee2f62cb0a56a2084e033e5a98175950fe9de444df0a10fc"
+    },
+    "compiled_old_client_runtime_executed": false
+  },
+  "protected_package_families": [
+    "android",
+    "com.android",
+    "com.brave.browser",
+    "com.google",
+    "com.huawei",
+    "com.microsoft.emmx",
+    "com.opera",
+    "com.sec.android.app.sbrowser",
+    "com.yandex.browser",
+    "org.mozilla",
+    "ru.shiftvps.client",
+    "ru.yandex.searchplugin"
+  ],
+  "protected_family_match": "exact name or family + dot prefix; case-sensitive"
+}

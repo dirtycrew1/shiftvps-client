@@ -4,6 +4,7 @@ import fr.husi.ktx.JSONMap
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 
 class ShiftVpsPolicyTest {
     @Test
@@ -38,7 +39,52 @@ class ShiftVpsPolicyTest {
         assertEquals("hijack-dns", (rules[1] as Map<*, *>)["action"])
         assertEquals(listOf("ru"), (rules[2] as Map<*, *>)["domain_suffix"])
         assertEquals(MANAGED_DIRECT_TAG, (rules[2] as Map<*, *>)["outbound"])
-        assertEquals("proxy", (rules[3] as Map<*, *>)["outbound"])
+        assertEquals(mapOf("network" to listOf("tcp"), "port" to listOf(22),
+            "action" to "route", "outbound" to MANAGED_DIRECT_TAG), rules[3])
+        assertEquals("proxy", (rules[4] as Map<*, *>)["outbound"])
+        val direct = (options["outbounds"] as List<*>).single() as Map<*, *>
+        assertEquals("direct", direct["type"])
+        assertEquals(mapOf("server" to MANAGED_DNS_TAG), direct["domain_resolver"])
+    }
+
+    @Test
+    fun `SSH bypass covers all destination names and IP families without bypassing foreign HTTPS or UDP`() {
+        val proxy = mapOf("action" to "route", "outbound" to "proxy")
+        val options: JSONMap = mutableMapOf("route" to mapOf("rules" to listOf(proxy)))
+        enforceManagedRouting(options)
+        val rules = (options["route"] as Map<*, *>)["rules"] as List<*>
+        val ssh = rules[1] as Map<*, *>
+        assertEquals(setOf("network", "port", "action", "outbound"), ssh.keys)
+        assertEquals(listOf("tcp"), ssh["network"])
+        assertEquals(listOf(22), ssh["port"])
+        assertEquals(MANAGED_DIRECT_TAG, ssh["outbound"])
+        assertFalse((ssh["port"] as List<*>).contains(443))
+        assertFalse((ssh["network"] as List<*>).contains("udp"))
+        assertEquals(listOf("ru"), (rules[0] as Map<*, *>)["domain_suffix"])
+        assertEquals(proxy, rules.last())
+    }
+
+    @Test
+    fun `SSH and ru routing guards follow all preprocessing actions before custom routes`() {
+        val preprocessing = listOf("sniff", "hijack-dns", "route-options", "resolve").map { mapOf("action" to it) }
+        val proxy = mapOf("action" to "route", "outbound" to "custom-proxy")
+        val options: JSONMap = mutableMapOf("route" to mapOf("rules" to preprocessing + proxy))
+        enforceManagedRouting(options)
+        val rules = (options["route"] as Map<*, *>)["rules"] as List<*>
+        assertEquals(preprocessing, rules.take(4))
+        assertEquals(listOf("ru"), (rules[4] as Map<*, *>)["domain_suffix"])
+        assertEquals(listOf(22), (rules[5] as Map<*, *>)["port"])
+        assertEquals(proxy, rules[6])
+    }
+
+    @Test
+    fun `empty custom configuration still receives both managed routes and the direct resolver`() {
+        val options: JSONMap = mutableMapOf()
+        enforceManagedRouting(options)
+        val rules = (options["route"] as Map<*, *>)["rules"] as List<*>
+        assertEquals(2, rules.size)
+        assertEquals(listOf("ru"), (rules[0] as Map<*, *>)["domain_suffix"])
+        assertEquals(listOf(22), (rules[1] as Map<*, *>)["port"])
         val direct = (options["outbounds"] as List<*>).single() as Map<*, *>
         assertEquals("direct", direct["type"])
         assertEquals(mapOf("server" to MANAGED_DNS_TAG), direct["domain_resolver"])

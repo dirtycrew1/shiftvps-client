@@ -371,6 +371,7 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
                 applyManagedPolicy(policy)
                 val selectedProfile = profiles.firstOrNull { it.id == selected } ?: throw ClientApiException("no_server")
                 if (!isManagedProfileCompatible(selectedProfile)) throw ClientApiException("unsupported_transport")
+                storeManagedAndroidRouting(selectedProfile, policy)
                 require(state.value.signedIn)
                 selectedProfileId = selected
                 connectionPending = true
@@ -424,6 +425,7 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
                     clearManagedProfiles()
                     cachedAccount.set("")
                     cachedPolicy.set("")
+                    managedAndroidRoutingSnapshot.set("")
                     cachedVerificationTime.set(0L)
                     cachedGroups.set("")
                     account = null

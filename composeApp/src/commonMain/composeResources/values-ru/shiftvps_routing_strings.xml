@@ -1,0 +1,3 @@
+<resources>
+    <string name="shiftvps_android_lockdown_notice">Для прямого доступа приложений отключите «Блокировать соединения без VPN» в настройках Android.</string>
+</resources>

@@ -4,10 +4,22 @@ package fr.husi.shiftvps
 
 import fr.husi.Key
 import fr.husi.database.DataStore
+import fr.husi.database.ProxyEntity
+import fr.husi.database.preference.string
 import fr.husi.ktx.JSONMap
 
 internal const val MANAGED_DIRECT_TAG = "shiftvps-direct"
 internal const val MANAGED_DNS_TAG = "shiftvps-system-dns"
+
+internal val managedAndroidRoutingSnapshot
+    get() = DataStore.configurationStore.string(MANAGED_ANDROID_ROUTING_KEY)
+
+internal suspend fun storeManagedAndroidRouting(profile: ProxyEntity, policy: ShiftVpsPolicy) {
+    require(profile.id > 0 && profile.groupId > 0)
+    val snapshot = ManagedAndroidRoutingSnapshot(profile.id, profile.groupId,
+        validatedManagedAndroidPackages(policy.routing.directAndroidPackages))
+    managedAndroidRoutingSnapshot.set(clientJson.encodeToString(ManagedAndroidRoutingSnapshot.serializer(), snapshot))
+}
 
 internal suspend fun applyManagedPolicy(policy: ShiftVpsPolicy) {
     policy.validated()
@@ -34,11 +46,13 @@ fun enforceManagedRouting(options: JSONMap) {
     val route = (options["route"] as? Map<String, Any?>)?.toMutableMap() ?: mutableMapOf()
     val rules = (route["rules"] as? List<Any?>).orEmpty().toMutableList()
     val guard = linkedMapOf<String, Any?>("domain_suffix" to listOf("ru"), "action" to "route", "outbound" to MANAGED_DIRECT_TAG)
+    val sshGuard = linkedMapOf<String, Any?>("network" to listOf("tcp"), "port" to listOf(22), "action" to "route", "outbound" to MANAGED_DIRECT_TAG)
     val firstRoutingRule = rules.indexOfFirst { item ->
         val action = (item as? Map<*, *>)?.get("action")
         action !in setOf("sniff", "hijack-dns", "route-options", "resolve")
     }.let { if (it < 0) rules.size else it }
     rules.add(firstRoutingRule, guard)
+    rules.add(firstRoutingRule + 1, sshGuard)
     route["rules"] = rules
     options["route"] = route
 

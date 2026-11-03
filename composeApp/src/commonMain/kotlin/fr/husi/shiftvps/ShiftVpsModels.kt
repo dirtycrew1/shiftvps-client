@@ -280,6 +280,7 @@ data class ShiftVpsPolicy(
     fun validated(): ShiftVpsPolicy {
         require(version > 0)
         require(routing.directDomainSuffixes == listOf("ru"))
+        validatedManagedAndroidPackages(routing.directAndroidPackages)
         require(dns.direct == "system")
         require(dns.proxy in setOf("quad9", "cloudflare"))
         require(dns.strategy in setOf("prefer_ipv4", "ipv4_only", "prefer_ipv6"))
@@ -304,6 +305,7 @@ data class ShiftVpsPolicy(
 @Serializable
 data class ShiftVpsRouting(
     @SerialName("direct_domain_suffixes") val directDomainSuffixes: List<String> = listOf("ru"),
+    @SerialName("direct_android_packages") val directAndroidPackages: List<String> = emptyList(),
 )
 
 @Serializable

@@ -54,6 +54,11 @@
         android:required="false" />
 
     <queries>
+        <package android:name="ru.oneme.app" />
+        <package android:name="ru.yandex.taxi" />
+        <package android:name="ru.rostel" />
+        <package android:name="ru.sberbankmobile" />
+        <package android:name="ru.ozon.app.android" />
         <intent>
             <action android:name="io.nekohasekai.sagernet.plugin.ACTION_NATIVE_PLUGIN" />
         </intent>

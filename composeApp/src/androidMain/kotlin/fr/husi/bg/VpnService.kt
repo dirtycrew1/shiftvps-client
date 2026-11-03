@@ -19,11 +19,19 @@ import fr.husi.fmt.hysteria.HysteriaBean
 import fr.husi.ktx.Logs
 import fr.husi.ktx.blankAsNull
 import fr.husi.ktx.listByLineIgnoringComments
+import fr.husi.ktx.showToast
 import fr.husi.repository.resolveAndroidRepository
 import fr.husi.repository.resolveRepository
 import fr.husi.resources.Res
 import fr.husi.resources.app_name
 import fr.husi.resources.reboot_required
+import fr.husi.resources.shiftvps_android_lockdown_notice
+import fr.husi.shiftvps.androidAppRouting
+import fr.husi.shiftvps.isManagedProfileCompatible
+import fr.husi.shiftvps.managedAndroidPackagesForProfile
+import fr.husi.shiftvps.managedAndroidRoutingSnapshot
+import fr.husi.shiftvps.shouldAppendAndroidVpnHttpProxy
+import fr.husi.shiftvps.shouldWarnManagedAndroidLockdown
 import fr.husi.ui.VpnRequestActivity
 import fr.husi.utils.Subnet
 import kotlinx.coroutines.runBlocking
@@ -206,12 +214,27 @@ class VpnService : BaseVpnService(),
         // app route
         val packageName = packageName
         val proxyApps = DataStore.proxyApps.getBlocking()
+        val profile = data.proxy!!.profile
+        val managedDirectApps = managedAndroidPackagesForProfile(
+            managedAndroidRoutingSnapshot.getBlocking(), profile.id, profile.groupId,
+            runBlocking { isManagedProfileCompatible(profile) },
+        )
+        val hasInstalledManagedApps = managedDirectApps.any { name ->
+            runCatching {
+                packageManager.getPackageInfo(name, 0)
+            }.isSuccess
+        }
+        val lockdownEnabled = hasInstalledManagedApps && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            runCatching { isLockdownEnabled }.getOrDefault(false)
+        if (shouldWarnManagedAndroidLockdown(Build.VERSION.SDK_INT, lockdownEnabled, hasInstalledManagedApps)) {
+            showToast(runBlocking { resolveRepository().getString(Res.string.shiftvps_android_lockdown_notice) }, long = true)
+        }
         val metadata = data.proxy!!.metadata
         val needBypassRootUid = metadata.trafficProfiles.any {
             it.hysteriaBean?.protocol == HysteriaBean.PROTOCOL_FAKETCP
         }
 
-        if (proxyApps || needBypassRootUid) {
+        if (proxyApps || needBypassRootUid || managedDirectApps.isNotEmpty()) {
             val allApps by lazy {
                 packageManager.getInstalledPackages(PackageManager.GET_PERMISSIONS).filter {
                     when (it.packageName) {
@@ -223,31 +246,18 @@ class VpnService : BaseVpnService(),
             }
             val selectedApps = DataStore.packages.getBlocking().filterTo(HashSet()) { it.isNotBlank() }
             val bypassMode = DataStore.bypassMode.getBlocking()
-            // Excluding the root uid is only possible through an allow list.
-            val bypass = proxyApps && bypassMode && !needBypassRootUid
-            val individual = when {
-                !proxyApps -> allApps
-                bypassMode && needBypassRootUid -> allApps - selectedApps
-                else -> selectedApps
-            }.toMutableSet()
-
             // Rules matching an app only work if that app's traffic enters the VPN.
             val ruleApps = resolveRuleApps(metadata.ruleApps) { allApps }
-            if (bypass) {
-                individual.removeAll(ruleApps)
-            } else {
-                individual.addAll(ruleApps)
-            }
+            val appRouting = androidAppRouting(
+                proxyApps, bypassMode, needBypassRootUid, selectedApps, ruleApps,
+                managedDirectApps, packageName,
+            ) { allApps.toSet() } ?: error("Missing Android app routing")
 
             val added = mutableListOf<String>()
 
-            individual.apply {
-                // Allow husi itself using VPN.
-                remove(packageName)
-                if (!bypass) add(packageName)
-            }.forEach {
+            appRouting.packages.forEach {
                 try {
-                    if (bypass) {
+                    if (appRouting.bypass) {
                         builder.addDisallowedApplication(it)
                     } else {
                         builder.addAllowedApplication(it)
@@ -258,14 +268,15 @@ class VpnService : BaseVpnService(),
                 }
             }
 
-            if (bypass) {
+            if (appRouting.bypass) {
                 Logs.d("Add bypass: ${added.joinToString(", ")}")
             } else {
                 Logs.d("Add allow: ${added.joinToString(", ")}")
             }
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && DataStore.appendHttpProxy.getBlocking() &&
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            shouldAppendAndroidVpnHttpProxy(DataStore.appendHttpProxy.getBlocking(), hasInstalledManagedApps) &&
             DataStore.inboundUsername.getBlocking().isEmpty() && DataStore.inboundPassword.getBlocking().isEmpty()
         ) {
             builder.setHttpProxy(
