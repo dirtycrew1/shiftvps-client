@@ -83,4 +83,55 @@ unset DESKTOP_URL_SCHEMES
     done
 )
 
+# Check the compiler target emitted by the same Make target used in CI.
+(
+    root_dir="$(cd "$SCRIPT_DIR/../.." && pwd)"
+    for target in darwin/arm64 darwin/amd64; do
+        expected_target='aarch64-macos.13.0'
+        if [[ "$target" == darwin/amd64 ]]; then expected_target='x86_64-macos.13.0'; fi
+        invocation="$(make --no-print-directory -n -C "$root_dir" launcher DESKTOP_TARGET="$target")"
+        if [[ "$invocation" != *" -Dtarget=$expected_target" ]]; then
+            printf 'Launcher compiler target must pin macOS 13.0: %s\n' "$target" >&2
+            exit 1
+        fi
+    done
+)
+
+# Exercise the actual packaging gate against otool fixtures; never run a binary.
+(
+    HOST_OS=darwin
+    binary_path='/fixture path/launcher'
+    file() { printf '%s: Mach-O 64-bit executable %s\n' "$1" "$expected_arch"; }
+    error() { printf '%s\n' "$*" >&2; }
+    log() { :; }
+    otool() {
+        [[ "$#" -eq 4 && "$1" == '-arch' && "$2" == "$expected_arch" && "$3" == '-l' && "$4" == "$binary_path" ]] || return 1
+        printf '%s\n' "$otool_fixture"
+    }
+    verifier="$(awk '
+        /^verify_native_binary\(\) \{/ { capture = 1 }
+        capture { print; if ($0 == "}") exit }
+    ' "$SCRIPT_DIR/package.sh")"
+    [[ -n "$verifier" ]]
+    eval "$verifier"
+    for TARGET_ARCH in arm64 amd64; do
+        expected_arch=arm64
+        if [[ "$TARGET_ARCH" == amd64 ]]; then expected_arch=x86_64; fi
+        otool_fixture=$'cmd LC_BUILD_VERSION\nplatform 1\nminos 13.0\nsdk 27.0\nntools 1\ntool LD\nversion 1234.0'
+        (verify_native_binary "$binary_path") || exit 1
+        otool_fixture=$'cmd LC_VERSION_MIN_MACOSX\nversion 11.0\nsdk 27.0'
+        (verify_native_binary "$binary_path") || exit 1
+        for otool_fixture in \
+            $'cmd LC_BUILD_VERSION\nplatform 1\nminos 15.0\nsdk 27.0' \
+            $'cmd LC_VERSION_MIN_MACOSX\nversion 13.0.1\nsdk 27.0' \
+            $'cmd LC_BUILD_VERSION\nplatform 2\nminos 13.0\nsdk 27.0' \
+            $'cmd LC_BUILD_VERSION\nplatform 1\nsdk 27.0'; do
+            if (verify_native_binary "$binary_path") >/dev/null 2>&1; then
+                printf 'Packaging accepted a newer, foreign, or missing macOS minimum.\n' >&2
+                exit 1
+            fi
+        done
+    done
+)
+
 printf 'Package metadata checks passed with Bash %s.\n' "$BASH_VERSION"

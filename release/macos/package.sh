@@ -291,7 +291,7 @@ require_tools() {
 
     case "$DMG_BACKEND" in
         hdiutil)
-            tools+=(hdiutil codesign xcrun lipo shasum python3 plutil)
+            tools+=(hdiutil codesign xcrun lipo otool shasum python3 plutil)
             ;;
         xorrisofs)
             tools+=("$DMG_COMMAND")
@@ -449,6 +449,30 @@ verify_native_binary() {
         error "Binary does not match darwin/$TARGET_ARCH: $binary"
         exit 1
     fi
+    if [[ "$HOST_OS" == darwin ]]; then
+        local minimum_os
+        if ! minimum_os="$(otool -arch "$expected_machine" -l "$binary" | awk '
+            function check(version, parts) {
+                if (version !~ /^[0-9]+([.][0-9]+)?([.][0-9]+)?$/) exit 1
+                split(version, parts, ".")
+                if (parts[1] > 13 || (parts[1] == 13 && (parts[2] > 0 || parts[3] > 0))) exit 1
+                count++
+                print version
+            }
+            $1 == "cmd" { command = $2; platform = "" }
+            command == "LC_BUILD_VERSION" && $1 == "platform" { platform = $2 }
+            command == "LC_BUILD_VERSION" && $1 == "minos" {
+                if (platform != "1" && platform != "macos") exit 1
+                check($2)
+            }
+            command == "LC_VERSION_MIN_MACOSX" && $1 == "version" { check($2) }
+            END { if (!count) exit 1 }
+        ')"; then
+            error "Binary has a missing, invalid, or newer-than-13.0 macOS minimum: $binary"
+            exit 1
+        fi
+        log "Verified darwin/$TARGET_ARCH minimum macOS $minimum_os <= 13.0: $binary"
+    fi
 }
 
 build_bundled_runtime() {
@@ -557,6 +581,8 @@ prepare_app_bundle() {
 
     build_bundled_runtime "$contents_dir/runtime"
     install_sparkle_updater "$contents_dir"
+    verify_native_binary "$contents_dir/Helpers/ShiftVPSUpdater.app/Contents/MacOS/ShiftVPSUpdater"
+    verify_native_binary "$contents_dir/Helpers/ShiftVPSUpdater.app/Contents/Frameworks/Sparkle.framework/Sparkle"
     touch_path_tree "$bundle_root"
     sign_test_bundle "$bundle_root"
 }
