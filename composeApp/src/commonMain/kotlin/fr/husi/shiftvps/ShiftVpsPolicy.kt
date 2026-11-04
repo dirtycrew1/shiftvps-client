@@ -10,6 +10,7 @@ import fr.husi.ktx.JSONMap
 
 internal const val MANAGED_DIRECT_TAG = "shiftvps-direct"
 internal const val MANAGED_DNS_TAG = "shiftvps-system-dns"
+internal val MANAGED_DIRECT_SUFFIXES = listOf("ru", "xn--p1ai")
 
 internal val managedAndroidRoutingSnapshot
     get() = DataStore.configurationStore.string(MANAGED_ANDROID_ROUTING_KEY)
@@ -45,14 +46,15 @@ internal suspend fun applyManagedPolicy(policy: ShiftVpsPolicy) {
 fun enforceManagedRouting(options: JSONMap) {
     val route = (options["route"] as? Map<String, Any?>)?.toMutableMap() ?: mutableMapOf()
     val rules = (route["rules"] as? List<Any?>).orEmpty().toMutableList()
-    val guard = linkedMapOf<String, Any?>("domain_suffix" to listOf("ru"), "action" to "route", "outbound" to MANAGED_DIRECT_TAG)
+    val guard = linkedMapOf<String, Any?>("domain_suffix" to MANAGED_DIRECT_SUFFIXES, "action" to "route", "outbound" to MANAGED_DIRECT_TAG)
+    val legacyGuard = guard + ("domain_suffix" to listOf("ru"))
     val sshGuard = linkedMapOf<String, Any?>("network" to listOf("tcp"), "port" to listOf(22), "action" to "route", "outbound" to MANAGED_DIRECT_TAG)
     val sniff = mapOf("action" to "sniff")
     val namedDirect = listOf("yandex.ru", "www.yandex.ru", "ya.ru").map { name ->
         // Cached browser IPs must be resolved again on the underlying network, not dialed as fixed IPv6.
         linkedMapOf<String, Any?>("domain" to listOf(name), "action" to "route", "outbound" to MANAGED_DIRECT_TAG, "override_address" to name)
     }
-    rules.removeAll { it == sniff || it == guard || it == sshGuard || it in namedDirect }
+    rules.removeAll { it == sniff || it == guard || it == legacyGuard || it == sshGuard || it in namedDirect }
     rules.add(0, sniff)
     val firstRoutingRule = rules.indexOfFirst { item ->
         val action = (item as? Map<*, *>)?.get("action")
@@ -81,13 +83,13 @@ fun enforceManagedRouting(options: JSONMap) {
     val dnsRules = (dns["rules"] as? List<Any?>).orEmpty().toMutableList()
     dnsRules.removeAll { item ->
         val rule = item as? Map<*, *>
-        rule?.get("domain_suffix") == listOf("ru") &&
+        rule != null && rule["domain_suffix"] in listOf(listOf("ru"), MANAGED_DIRECT_SUFFIXES) &&
             (rule["server"] == MANAGED_DNS_TAG || (rule["inbound"] == listOf("tun-in") && rule["query_type"] == listOf("A", "AAAA")))
     }
-    dnsRules.add(0, linkedMapOf("domain_suffix" to listOf("ru"), "action" to "route", "server" to MANAGED_DNS_TAG))
+    dnsRules.add(0, linkedMapOf("domain_suffix" to MANAGED_DIRECT_SUFFIXES, "action" to "route", "server" to MANAGED_DNS_TAG))
     fakeTag?.let {
         // FakeIP preserves the domain for dialing; the direct outbound performs the real system lookup.
-        dnsRules.add(0, linkedMapOf("inbound" to listOf("tun-in"), "domain_suffix" to listOf("ru"),
+        dnsRules.add(0, linkedMapOf("inbound" to listOf("tun-in"), "domain_suffix" to MANAGED_DIRECT_SUFFIXES,
             "query_type" to listOf("A", "AAAA"), "action" to "route", "server" to it, "disable_cache" to true))
     }
     dns["servers"] = dnsServers

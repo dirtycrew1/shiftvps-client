@@ -1,5 +1,7 @@
 package fr.husi.shiftvps
 
+import fr.husi.bg.withBackgroundProcess
+import fr.husi.core.CoreClient
 import fr.husi.database.DataStore
 import fr.husi.database.ProxyEntity
 import fr.husi.database.SagerDatabase
@@ -10,6 +12,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import org.koin.core.context.GlobalContext
 
 internal data class QuickServerChoice(val name: String, val profileId: Long, val selected: Boolean)
 
@@ -35,13 +38,30 @@ private suspend fun quickProfiles(): List<ProxyEntity> {
 internal suspend fun prepareManagedQuickConnection(profileId: Long): Boolean = withContext(Dispatchers.IO) {
     try {
         if (!quickControlAccessReady()) return@withContext false
-        val profile = quickProfiles().firstOrNull { it.id == profileId } ?: return@withContext false
+        val token = platformShiftVpsTokenStore().load()
+        val previous = DataStore.selectedProxy.get()
+        val profiles = quickProfiles()
+        val candidates = profiles.map { ServerCandidate(it.id, diagnosticServerId(it), it.displayName(), it.ping.takeIf { ping -> ping > 0 }) }
+        val groups = clientJson.decodeFromString<List<ShiftVpsServerGroup>>(
+            DataStore.configurationStore.string("shiftvps.server_groups").get(),
+        )
+        val cluster = serverClusters(candidates, groups).firstOrNull { profileId in it.profileIds } ?: return@withContext false
         val policy = clientJson.decodeFromString<ShiftVpsPolicy>(
             DataStore.configurationStore.string("shiftvps.policy").get(),
         ).validated()
         applyManagedPolicy(policy)
+        val resolved = withBackgroundProcess {
+            val core = GlobalContext.get().get<CoreClient>()
+            chooseConnectionProfile(cluster, candidates) { candidate ->
+                val profile = profiles.first { it.id == candidate.profileId }
+                probeManagedProfile(core, profile, policy.latency)
+            }
+        } ?: return@withContext false
+        if (platformShiftVpsTokenStore().load() != token || !quickControlAccessReady() ||
+            DataStore.selectedProxy.get() != previous) return@withContext false
+        val profile = profiles.first { it.id == resolved }
         storeManagedAndroidRouting(profile, policy)
-        DataStore.selectedProxy.set(profileId)
+        DataStore.selectedProxy.set(resolved)
         DataStore.configurationStore.int("shiftvps.active_policy_version").set(policy.version)
         true
     } catch (error: CancellationException) {

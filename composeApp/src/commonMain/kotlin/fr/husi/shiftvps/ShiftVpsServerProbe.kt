@@ -3,10 +3,17 @@ package fr.husi.shiftvps
 import fr.husi.core.CoreClient
 import fr.husi.core.CoreRpcException
 import fr.husi.core.urlTestOptions
+import fr.husi.bg.buildPluginSpecs
+import fr.husi.bg.initPlugins
+import fr.husi.database.ProxyEntity
 import fr.husi.fmt.ConfigBuildResult
+import fr.husi.fmt.buildConfig
 import fr.husi.proto.v1.PluginProcessSpec
 import io.github.xchacha20_poly1305.kurpc.Status
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import javax.net.ssl.SSLException
@@ -26,6 +33,22 @@ internal enum class ServerProbeFailure(val metricCode: String) {
 internal sealed interface ServerProbeResult {
     data class Success(val latencyMs: Int) : ServerProbeResult
     data class Inconclusive(val reason: ServerProbeFailure) : ServerProbeResult
+}
+
+internal suspend fun probeManagedProfile(
+    core: CoreClient, profile: ProxyEntity, latency: ShiftVpsLatency,
+): ServerProbeResult {
+    val cache = mutableListOf<File>()
+    return try {
+        val config = withContext(Dispatchers.IO) { buildConfig(profile, forTest = true) }
+        val plugins = withContext(Dispatchers.IO) {
+            buildPluginSpecs(config.metadata, initPlugins(config.metadata, cache))
+        }
+        probeServer(core, config, latency, plugins)
+    } catch (error: Exception) {
+        if (error is CancellationException) throw error
+        ServerProbeResult.Inconclusive(ServerProbeFailure.Setup)
+    } finally { cache.forEach { it.delete() } }
 }
 
 internal suspend fun probeServer(

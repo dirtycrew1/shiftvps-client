@@ -13,7 +13,10 @@ internal data class ServerCandidate(
     val probeFailure: ServerProbeFailure? = null,
 )
 
-internal data class ServerCluster(val id: Long, val name: String, val profileIds: List<Long>, val countryCode: String = "")
+internal data class ServerCluster(
+    val id: Long, val name: String, val profileIds: List<Long>, val countryCode: String = "",
+    val directProfileIds: List<Long> = emptyList(),
+)
 
 internal fun managedServiceProfileId(
     state: ServiceState, requested: Long, current: Long, managedIds: Set<Long>,
@@ -26,7 +29,10 @@ internal fun managedServiceProfileId(
 internal fun serverClusters(candidates: List<ServerCandidate>, groups: List<ShiftVpsServerGroup>): List<ServerCluster> {
     val validGroups = groups.take(256).filter { group ->
         group.id.length in 1..128 && group.name.length in 1..80 && group.name.none(Char::isISOControl) &&
-            group.endpointIds.size in 1..512 && group.endpointIds.all { it.matches(Regex("[0-9a-f]{64}")) }
+            group.endpointIds.size in 1..512 && group.endpointIds.all { it.matches(Regex("[0-9a-f]{64}")) } &&
+            group.directEndpointIds.size <= group.endpointIds.size &&
+            group.directEndpointIds.distinct().size == group.directEndpointIds.size &&
+            group.endpointIds.containsAll(group.directEndpointIds)
     }.groupBy { it.id }.values.filter { it.size == 1 }.map { it.single() }
     val claims = mutableMapOf<String, MutableList<ShiftVpsServerGroup>>()
     for (group in validGroups) {
@@ -39,7 +45,9 @@ internal fun serverClusters(candidates: List<ServerCandidate>, groups: List<Shif
         val name = authoritative?.name ?: candidate.name
         val old = clusters[rowId]
         val country = authoritative?.countryCode?.takeIf { it.matches(Regex("[A-Za-z]{2}")) }?.uppercase().orEmpty()
-        clusters[rowId] = ServerCluster(rowId, name, old?.profileIds.orEmpty() + candidate.profileId, country)
+        val direct = old?.directProfileIds.orEmpty() +
+            listOfNotNull(candidate.profileId.takeIf { authoritative?.directEndpointIds?.contains(candidate.endpointId) == true })
+        clusters[rowId] = ServerCluster(rowId, name, old?.profileIds.orEmpty() + candidate.profileId, country, direct)
     }
     return clusters.values.toList()
 }
@@ -51,9 +59,29 @@ internal fun chooseProfile(
 ): Long? {
     if (pinnedProfileId != null && pinnedProfileId in cluster.profileIds) return pinnedProfileId
     val members = candidates.filter { it.profileId in cluster.profileIds }
-    return members.filter { it.latencyMs != null && it.latencyMs > 0 }.minByOrNull { it.latencyMs!! }?.profileId
-        ?: members.firstOrNull { !it.checked }?.profileId
-        ?: members.firstOrNull()?.profileId
+    for (tier in listOf(members.filter { it.profileId in cluster.directProfileIds },
+        members.filter { it.profileId !in cluster.directProfileIds })) {
+        tier.filter { it.latencyMs != null && it.latencyMs > 0 }.minByOrNull { it.latencyMs!! }?.let { return it.profileId }
+        tier.firstOrNull { !it.checked }?.let { return it.profileId }
+    }
+    return members.firstOrNull { it.profileId in cluster.directProfileIds }?.profileId ?: members.firstOrNull()?.profileId
+}
+
+/** A fresh successful HTTP request on a direct route prevents any relay attempt. */
+internal suspend fun chooseConnectionProfile(
+    cluster: ServerCluster,
+    candidates: List<ServerCandidate>,
+    probe: suspend (ServerCandidate) -> ServerProbeResult,
+): Long? {
+    val ordered = candidates.filter { it.profileId in cluster.profileIds }.sortedWith(
+        compareBy<ServerCandidate> { if (it.profileId in cluster.directProfileIds) 0 else 1 }
+            .thenBy { it.latencyMs?.takeIf { latency -> latency > 0 } ?: Int.MAX_VALUE },
+    )
+    for (candidate in ordered) {
+        if (probe(candidate) is ServerProbeResult.Success) return candidate.profileId
+    }
+    // A test-site or core failure is inconclusive; retain the ability to try the preferred VPN route.
+    return ordered.firstOrNull()?.profileId
 }
 
 internal fun clusterRow(

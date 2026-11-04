@@ -8,6 +8,17 @@ import kotlin.test.assertFalse
 
 class ShiftVpsPolicyTest {
     @Test
+    fun `Cyrillic RF domains share the direct route and local resolver with ru`() {
+        assertEquals("xn--p1ai", java.net.IDN.toASCII("рф"))
+        val options: JSONMap = mutableMapOf("inbounds" to listOf(mapOf("type" to "tun")))
+        enforceManagedRouting(options)
+        val route = ((options["route"] as Map<*, *>)["rules"] as List<*>).map { it as Map<*, *> }.single { "domain_suffix" in it }
+        assertEquals(listOf("ru", "xn--p1ai"), route["domain_suffix"])
+        assertEquals(MANAGED_DIRECT_TAG, route["outbound"])
+        val dns = ((options["dns"] as Map<*, *>)["rules"] as List<*>).map { it as Map<*, *> }
+        assertEquals(2, dns.count { it["domain_suffix"] == listOf("ru", "xn--p1ai") })
+    }
+    @Test
     fun `managed ru DNS bypass precedes fake DNS and proxy DNS`() {
         val options: JSONMap = mutableMapOf(
             "dns" to mutableMapOf<String, Any?>(
@@ -18,7 +29,7 @@ class ShiftVpsPolicyTest {
         enforceManagedRouting(options)
         val dns = options["dns"] as Map<*, *>
         val firstRule = (dns["rules"] as List<*>).first() as Map<*, *>
-        assertEquals(listOf("ru"), firstRule["domain_suffix"])
+        assertEquals(listOf("ru", "xn--p1ai"), firstRule["domain_suffix"])
         assertEquals(MANAGED_DNS_TAG, firstRule["server"])
         assertEquals(listOf(mapOf("type" to "local", "tag" to MANAGED_DNS_TAG)), dns["servers"])
     }
@@ -38,7 +49,7 @@ class ShiftVpsPolicyTest {
         assertEquals("sniff", (rules[0] as Map<*, *>)["action"])
         assertEquals("hijack-dns", (rules[1] as Map<*, *>)["action"])
         val ru = rules.map { it as Map<*, *> }.single { "domain_suffix" in it }
-        assertEquals(listOf("ru"), ru["domain_suffix"])
+        assertEquals(listOf("ru", "xn--p1ai"), ru["domain_suffix"])
         assertEquals(MANAGED_DIRECT_TAG, ru["outbound"])
         assertEquals(mapOf("network" to listOf("tcp"), "port" to listOf(22),
             "action" to "route", "outbound" to MANAGED_DIRECT_TAG), rules[rules.lastIndex-1])
@@ -61,7 +72,7 @@ class ShiftVpsPolicyTest {
         assertEquals(MANAGED_DIRECT_TAG, ssh["outbound"])
         assertFalse((ssh["port"] as List<*>).contains(443))
         assertFalse((ssh["network"] as List<*>).contains("udp"))
-        assertEquals(listOf("ru"), rules.map { it as Map<*, *> }.single { "domain_suffix" in it }["domain_suffix"])
+        assertEquals(listOf("ru", "xn--p1ai"), rules.map { it as Map<*, *> }.single { "domain_suffix" in it }["domain_suffix"])
         assertEquals(proxy, rules.last())
     }
 
@@ -73,7 +84,7 @@ class ShiftVpsPolicyTest {
         enforceManagedRouting(options)
         val rules = (options["route"] as Map<*, *>)["rules"] as List<*>
         assertEquals(preprocessing, rules.take(4))
-        assertEquals(listOf("ru"), rules.map { it as Map<*, *> }.single { "domain_suffix" in it }["domain_suffix"])
+        assertEquals(listOf("ru", "xn--p1ai"), rules.map { it as Map<*, *> }.single { "domain_suffix" in it }["domain_suffix"])
         assertEquals(listOf(22), (rules[rules.lastIndex-1] as Map<*, *>)["port"])
         assertEquals(proxy, rules.last())
     }
@@ -84,7 +95,7 @@ class ShiftVpsPolicyTest {
         enforceManagedRouting(options)
         val rules = (options["route"] as Map<*, *>)["rules"] as List<*>
         assertEquals(6, rules.size)
-        assertEquals(listOf("ru"), rules.map { it as Map<*, *> }.single { "domain_suffix" in it }["domain_suffix"])
+        assertEquals(listOf("ru", "xn--p1ai"), rules.map { it as Map<*, *> }.single { "domain_suffix" in it }["domain_suffix"])
         assertEquals(listOf(22), (rules.last() as Map<*, *>)["port"])
         val direct = (options["outbounds"] as List<*>).single() as Map<*, *>
         assertEquals("direct", direct["type"])

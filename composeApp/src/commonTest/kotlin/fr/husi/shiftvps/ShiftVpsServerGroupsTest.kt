@@ -1,12 +1,15 @@
 package fr.husi.shiftvps
 
 import fr.husi.bg.ServiceState
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.test.runTest
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertFailsWith
 
 class ShiftVpsServerGroupsTest {
     @Test
@@ -25,6 +28,55 @@ class ShiftVpsServerGroupsTest {
     private val endpointB = "b".repeat(64)
     private val endpointC = "c".repeat(64)
     private val node = ShiftVpsServerGroup("node-uuid-a", "Нидерланды", listOf(endpointA, endpointB))
+
+    @Test
+    fun `working direct route wins over a lower latency relay and untested direct stays first`() {
+        val candidates = listOf(
+            ServerCandidate(1, endpointA, "Direct", 200, checked = true),
+            ServerCandidate(2, endpointB, "Relay", 20, checked = true),
+        )
+        val cluster = serverClusters(candidates, listOf(node.copy(directEndpointIds = listOf(endpointA)))).single()
+        assertEquals(listOf(1L), cluster.directProfileIds)
+        assertEquals(1L, chooseProfile(cluster, candidates))
+        assertEquals(1L, chooseProfile(cluster, candidates.map { if (it.profileId == 1L) it.copy(latencyMs = null, checked = false) else it }))
+        assertEquals(2L, chooseProfile(cluster, candidates.map { if (it.profileId == 1L) it.copy(latencyMs = null) else it }))
+        assertEquals(2L, chooseProfile(cluster, candidates, pinnedProfileId = 2))
+    }
+
+    @Test
+    fun `direct preference cannot claim endpoints outside its authoritative group`() {
+        val candidates = listOf(ServerCandidate(1, endpointA, "One"), ServerCandidate(2, endpointB, "Two"))
+        for (direct in listOf(listOf(endpointC), listOf(endpointA, endpointA))) {
+            assertTrue(serverClusters(candidates, listOf(node.copy(directEndpointIds = direct))).all { it.directProfileIds.isEmpty() })
+        }
+    }
+
+    @Test
+    fun `connection tries direct first and reaches a relay only after every direct request fails`() = runTest {
+        val candidates = listOf(
+            ServerCandidate(2, endpointB, "Relay", 20, checked = true),
+            ServerCandidate(1, endpointA, "Direct", 200, checked = true),
+            ServerCandidate(3, endpointC, "Second direct", checked = true),
+        )
+        val cluster = ServerCluster(-1, "Country", listOf(2, 1, 3), directProfileIds = listOf(1, 3))
+        val attempted = mutableListOf<Long>()
+        assertEquals(1L, chooseConnectionProfile(cluster, candidates) {
+            attempted += it.profileId; ServerProbeResult.Success(200)
+        })
+        assertEquals(listOf(1L), attempted)
+        attempted.clear()
+        assertEquals(2L, chooseConnectionProfile(cluster, candidates) {
+            attempted += it.profileId
+            if (it.profileId == 2L) ServerProbeResult.Success(20) else ServerProbeResult.Inconclusive(ServerProbeFailure.Timeout)
+        })
+        assertEquals(listOf(1L, 3L, 2L), attempted)
+        attempted.clear()
+        assertFailsWith<CancellationException> {
+            chooseConnectionProfile(cluster, candidates) { attempted += it.profileId; throw CancellationException() }
+        }
+        assertEquals(listOf(1L), attempted)
+        assertEquals(1L, chooseConnectionProfile(cluster, candidates) { ServerProbeResult.Inconclusive(ServerProbeFailure.CoreUnavailable) })
+    }
 
     @Test
     fun `country flags come only from the authoritative node and tolerate old cached metadata`() {

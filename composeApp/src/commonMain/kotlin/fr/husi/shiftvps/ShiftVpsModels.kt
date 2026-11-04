@@ -265,6 +265,7 @@ data class ShiftVpsServerGroup(
     val name: String,
     @SerialName("endpoint_ids") val endpointIds: List<String>,
     @SerialName("country_code") val countryCode: String = "",
+    @SerialName("direct_endpoint_ids") val directEndpointIds: List<String> = emptyList(),
 )
 
 @Serializable

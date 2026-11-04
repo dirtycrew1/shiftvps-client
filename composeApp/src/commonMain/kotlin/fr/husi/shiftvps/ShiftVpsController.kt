@@ -3,8 +3,6 @@ package fr.husi.shiftvps
 import fr.husi.BuildConfig
 import fr.husi.bg.BackendState
 import fr.husi.bg.ServiceState
-import fr.husi.bg.buildPluginSpecs
-import fr.husi.bg.initPlugins
 import fr.husi.core.CoreClient
 import fr.husi.database.DataStore
 import fr.husi.database.GroupManager
@@ -15,7 +13,6 @@ import fr.husi.database.SubscriptionBean
 import fr.husi.database.preference.string
 import fr.husi.database.preference.long
 import fr.husi.database.preference.int
-import fr.husi.fmt.buildConfig
 import fr.husi.fmt.http.HttpBean
 import fr.husi.fmt.hysteria.HysteriaBean
 import fr.husi.fmt.mieru.MieruBean
@@ -55,7 +52,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.Serializable
 import org.koin.core.context.GlobalContext
-import java.io.File
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.security.MessageDigest
@@ -395,16 +391,17 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
                 try {
                     val token = verifiedConnectionToken()
                     if (!current()) return@withLock
-                    val selected = profiles.firstOrNull { it.id == profileId } ?: throw ClientApiException("no_server")
-                    if (!isManagedProfileCompatible(selected)) throw ClientApiException("unsupported_transport")
                     applyManagedPolicy(policy)
+                    val resolved = prepareConnectionProfile(row, ::current)
+                    val selected = profiles.firstOrNull { it.id == resolved } ?: throw ClientApiException("no_server")
+                    if (!isManagedProfileCompatible(selected)) throw ClientApiException("unsupported_transport")
                     storeManagedAndroidRouting(selected, policy)
                     if (!current()) return@withLock
-                    DataStore.selectedProxy.set(profileId)
+                    DataStore.selectedProxy.set(resolved)
                     DataStore.configurationStore.int("shiftvps.active_policy_version").set(policy.version)
                     if (!current()) return@withLock
                     userSelectedServer = true
-                    selectedProfileId = profileId
+                    selectedProfileId = resolved
                     connectionRequestId = Any()
                     state.update { it.copy(selectedId = id, error = null, policyVersion = policy.version) }
                     prepareServiceMetrics(tokenOwner(token), policy.version)
@@ -457,13 +454,17 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
         scope.launch {
             if (!connectionPreparation.tryLock()) return@launch
             val generation = sessionGeneration
+            val revision = serverSelectionRevision
+            fun current() = generation == sessionGeneration && revision == serverSelectionRevision &&
+                state.value.signedIn && state.value.accessState == ShiftVpsAccessState.Active &&
+                !state.value.serviceState.started
             try {
                 val token = verifiedConnectionToken()
                 val candidates = candidates()
                 val row = serverClusters(candidates, groups).firstOrNull { it.id == state.value.selectedId }
                     ?: throw ClientApiException("no_server")
-                val selected = chooseProfile(row, candidates) ?: throw ClientApiException("no_server")
                 applyManagedPolicy(policy)
+                val selected = prepareConnectionProfile(row, ::current)
                 val selectedProfile = profiles.firstOrNull { it.id == selected } ?: throw ClientApiException("no_server")
                 if (!isManagedProfileCompatible(selectedProfile)) throw ClientApiException("unsupported_transport")
                 storeManagedAndroidRouting(selectedProfile, policy)
@@ -473,7 +474,7 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
                 connectionRequestId = Any()
                 DataStore.selectedProxy.set(selected)
                 DataStore.configurationStore.int("shiftvps.active_policy_version").set(policy.version)
-                if (generation != sessionGeneration || !state.value.signedIn) {
+                if (!current()) {
                     connectionPending = false
                     return@launch
                 }
@@ -608,6 +609,20 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
         }
     }
 
+    private suspend fun prepareConnectionProfile(cluster: ServerCluster, current: () -> Boolean): Long = survey.withLock {
+        if (!current()) throw CancellationException()
+        chooseConnectionProfile(cluster, candidates()) { candidate ->
+            if (!current()) throw CancellationException()
+            val profile = profiles.firstOrNull { it.id == candidate.profileId } ?: throw CancellationException()
+            val result = probeManagedProfile(core, profile, policy.latency)
+            if (!current()) throw CancellationException()
+            measurements[profile.id] = candidate.copy(latencyMs = (result as? ServerProbeResult.Success)?.latencyMs,
+                checked = true, checking = false, probeFailure = (result as? ServerProbeResult.Inconclusive)?.reason)
+            publishProfiles()
+            result
+        } ?: throw ClientApiException("no_server")
+    }
+
     private suspend fun probeProfiles() = coroutineScope {
         if (state.value.accessState != ShiftVpsAccessState.Active) return@coroutineScope
         if (profiles.isEmpty()) return@coroutineScope
@@ -622,17 +637,7 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
             profiles.toList().map { profile ->
                 launch {
                     gate.withPermit {
-                        val cache = mutableListOf<File>()
-                        val result = try {
-                            val config = withContext(Dispatchers.IO) { buildConfig(profile, forTest = true) }
-                            val plugins = withContext(Dispatchers.IO) {
-                                buildPluginSpecs(config.metadata, initPlugins(config.metadata, cache))
-                            }
-                            probeServer(core, config, policy.latency, plugins)
-                        } catch (error: Exception) {
-                            if (error is CancellationException) throw error
-                            ServerProbeResult.Inconclusive(ServerProbeFailure.Setup)
-                        } finally { cache.forEach { it.delete() } }
+                        val result = probeManagedProfile(core, profile, policy.latency)
                         val latency = (result as? ServerProbeResult.Success)?.latencyMs
                         val failure = (result as? ServerProbeResult.Inconclusive)?.reason
                         if (failure != null) Logs.w("ShiftVPS server probe inconclusive: ${failure.name}")
