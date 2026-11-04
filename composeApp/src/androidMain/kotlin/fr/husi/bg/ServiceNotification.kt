@@ -24,6 +24,7 @@ import fr.husi.resources.speed
 import fr.husi.resources.speed_detail
 import fr.husi.resources.stop
 import fr.husi.resources.traffic
+import fr.husi.ui.SwitchActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -183,7 +184,29 @@ class ServiceNotification(
                 ),
             ).setShowsUserInterface(false).build()
             it.addAction(closeAction)
-
+            it.addAction(
+                NotificationCompat.Action.Builder(
+                    0,
+                    service.getString(R.string.shiftvps_notification_switch),
+                    PendingIntent.getActivity(
+                        service, 1,
+                        Intent(service, SwitchActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                        flags,
+                    ),
+                ).setShowsUserInterface(true).build(),
+            )
+            it.addAction(
+                NotificationCompat.Action.Builder(
+                    0,
+                    service.getString(R.string.shiftvps_notification_reset),
+                    PendingIntent.getBroadcast(
+                        service, 2,
+                        Intent(Action.RESET_UPSTREAM_CONNECTIONS).setPackage(service.packageName),
+                        flags,
+                    ),
+                ).setShowsUserInterface(false).build(),
+            )
         }
     }
 

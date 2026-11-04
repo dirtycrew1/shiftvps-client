@@ -1,5 +1,6 @@
 package fr.husi.shiftvps
 
+import fr.husi.bg.ServiceState
 import java.security.MessageDigest
 
 internal data class ServerCandidate(
@@ -13,6 +14,14 @@ internal data class ServerCandidate(
 )
 
 internal data class ServerCluster(val id: Long, val name: String, val profileIds: List<Long>, val countryCode: String = "")
+
+internal fun managedServiceProfileId(
+    state: ServiceState, requested: Long, current: Long, managedIds: Set<Long>,
+): Long? = when (state) {
+    ServiceState.Connecting -> requested
+    ServiceState.Connected -> current
+    else -> null
+}?.takeIf { it > 0 && it in managedIds }
 
 internal fun serverClusters(candidates: List<ServerCandidate>, groups: List<ShiftVpsServerGroup>): List<ServerCluster> {
     val validGroups = groups.take(256).filter { group ->

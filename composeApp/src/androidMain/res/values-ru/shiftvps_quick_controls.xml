@@ -1,0 +1,9 @@
+<resources>
+    <string name="shiftvps_notification_switch">Сменить</string>
+    <string name="shiftvps_notification_reset">Сброс соединений</string>
+    <string name="shiftvps_switch_server">Сменить сервер</string>
+    <string name="shiftvps_tile_connecting">Подключение…</string>
+    <string name="shiftvps_tile_connected">Подключено</string>
+    <string name="shiftvps_tile_stopping">Отключение…</string>
+    <string name="shiftvps_tile_disconnected">Отключено</string>
+</resources>

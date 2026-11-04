@@ -1,6 +1,7 @@
 package fr.husi.bg
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -16,6 +17,8 @@ import fr.husi.lib.R
 import fr.husi.repository.resolveRepository
 import fr.husi.resources.Res
 import fr.husi.resources.app_name
+import fr.husi.shiftvps.prepareManagedQuickConnection
+import fr.husi.ui.MainActivity
 import fr.husi.ui.VpnRequestActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,14 +31,12 @@ import android.net.VpnService as BaseVpnService
 import android.service.quicksettings.TileService as BaseTileService
 
 class TileService : BaseTileService() {
-    private val iconRest by lazy { Icon.createWithResource(this, R.drawable.ic_service_rest) }
-    private val iconConnected by lazy {
-        Icon.createWithResource(this, R.drawable.ic_service_active)
-    }
+    private val shiftVpsIcon by lazy { Icon.createWithResource(this, R.drawable.ic_shiftvps_notification) }
 
     private val scope = CoroutineScope(Dispatchers.Main.immediate)
 
     private var listenJob: Job? = null
+    private var toggleJob: Job? = null
 
     override fun attachBaseContext(newBase: Context) {
         val languageContext = ContextCompat.getContextForLanguage(newBase)
@@ -47,6 +48,7 @@ class TileService : BaseTileService() {
         refreshTile()
         // The tile shares the ":bg" process with the services, so the state written by
         // BaseService.changeState is readable right here without any cross process hop.
+        listenJob?.cancel()
         listenJob = scope.launch {
             BackendState.status.collect { status ->
                 updateTile(status.state, status.profileName)
@@ -71,39 +73,41 @@ class TileService : BaseTileService() {
 
     private fun updateTile(serviceState: ServiceState, profileName: String?) {
         qsTile?.apply {
-            label = null
+            label = runBlocking { resolveRepository().getString(Res.string.app_name) }
+            icon = shiftVpsIcon
+            val description = when (serviceState) {
+                ServiceState.Connecting -> getString(R.string.shiftvps_tile_connecting)
+                ServiceState.Connected -> profileName ?: getString(R.string.shiftvps_tile_connected)
+                ServiceState.Stopping -> getString(R.string.shiftvps_tile_stopping)
+                else -> getString(R.string.shiftvps_tile_disconnected)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) subtitle = description
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) stateDescription = description
             when (serviceState) {
                 ServiceState.Connecting -> {
-                    icon = iconRest
                     state = Tile.STATE_ACTIVE
                 }
 
                 ServiceState.Connected -> {
-                    icon = iconConnected
-                    label = profileName
                     state = Tile.STATE_ACTIVE
                 }
 
                 ServiceState.Stopping -> {
-                    icon = iconRest
                     state = Tile.STATE_UNAVAILABLE
                 }
 
                 // Stopped
                 else -> {
-                    icon = iconRest
                     state = Tile.STATE_INACTIVE
                 }
-            }
-            label = label ?: runBlocking {
-                resolveRepository().getString(Res.string.app_name)
             }
             updateTile()
         }
     }
 
     private fun toggle() {
-        scope.launch {
+        if (toggleJob?.isActive == true) return
+        toggleJob = scope.launch {
             val state = DataStore.serviceState
             when {
                 state.canStop -> {
@@ -112,6 +116,10 @@ class TileService : BaseTileService() {
                 }
 
                 state == ServiceState.Stopped || state == ServiceState.Idle -> {
+                    if (!prepareManagedQuickConnection(DataStore.selectedProxy.get())) {
+                        startActivityFromTile(MainActivity::class.java)
+                        return@launch
+                    }
                     updateTile(ServiceState.Connecting, null)
                     startServiceFromTile()
                 }
@@ -152,7 +160,11 @@ class TileService : BaseTileService() {
      * then starts the service from a foreground activity context.
      */
     private fun startViaRequestActivity() {
-        val intent = Intent(this, VpnRequestActivity::class.java)
+        startActivityFromTile(VpnRequestActivity::class.java)
+    }
+
+    private fun startActivityFromTile(activity: Class<out Activity>) {
+        val intent = Intent(this, activity)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startActivityAndCollapse(

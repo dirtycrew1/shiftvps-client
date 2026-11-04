@@ -156,6 +156,13 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
         scope.launch {
             var previous = ServiceState.Idle
             BackendState.status.collect { status ->
+                if (PlatformInfo.isAndroid && status.state.started && status.state != previous) {
+                    managedServiceProfileId(status.state, DataStore.selectedProxy.get(), DataStore.currentProfile.get(),
+                        profiles.map { it.id }.toSet())?.let { actual ->
+                        if (selectedProfileId != actual) userSelectedServer = true
+                        selectedProfileId = actual
+                    }
+                }
                 state.update { it.copy(serviceState = status.state) }
                 if (status.state == ServiceState.Stopped) connectionPending = false
                 publishProfiles()

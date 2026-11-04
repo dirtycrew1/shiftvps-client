@@ -1,0 +1,9 @@
+<resources>
+    <string name="shiftvps_notification_switch">Change</string>
+    <string name="shiftvps_notification_reset">Reset connections</string>
+    <string name="shiftvps_switch_server">Change server</string>
+    <string name="shiftvps_tile_connecting">Connecting…</string>
+    <string name="shiftvps_tile_connected">Connected</string>
+    <string name="shiftvps_tile_stopping">Disconnecting…</string>
+    <string name="shiftvps_tile_disconnected">Disconnected</string>
+</resources>

@@ -1,5 +1,7 @@
 package fr.husi.shiftvps
 
+import fr.husi.bg.ServiceState
+
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -7,6 +9,18 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class ShiftVpsServerGroupsTest {
+    @Test
+    fun `notification and tile connections follow the service profile without adopting foreign profiles`() {
+        val managed = setOf(10L, 20L)
+        assertEquals(20L, managedServiceProfileId(ServiceState.Connecting, 20L, 10L, managed))
+        assertEquals(10L, managedServiceProfileId(ServiceState.Connected, 20L, 10L, managed))
+        assertEquals(null, managedServiceProfileId(ServiceState.Connected, 20L, 99L, managed))
+        assertEquals(null, managedServiceProfileId(ServiceState.Connecting, 0L, 10L, managed))
+        for (state in listOf(ServiceState.Idle, ServiceState.Stopped, ServiceState.Stopping)) {
+            assertEquals(null, managedServiceProfileId(state, 20L, 10L, managed))
+        }
+    }
+
     private val endpointA = "a".repeat(64)
     private val endpointB = "b".repeat(64)
     private val endpointC = "c".repeat(64)
