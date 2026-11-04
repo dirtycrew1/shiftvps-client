@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.compose.resources.PluralStringResource
 import org.jetbrains.compose.resources.StringResource
+import fr.husi.database.DataStore as AppDataStore
 import java.io.File
 import org.jetbrains.compose.resources.getPluralString as getComposePluralString
 import org.jetbrains.compose.resources.getString as getComposeString
@@ -40,5 +41,8 @@ interface Repository {
 
     fun startService()
     fun reloadService()
+    fun reloadServiceIfRunning() {
+        if (AppDataStore.serviceState.canStop) reloadService()
+    }
     fun stopService()
 }

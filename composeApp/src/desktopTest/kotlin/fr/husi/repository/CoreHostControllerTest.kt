@@ -319,6 +319,57 @@ class CoreHostControllerTest : HusiKoinTest() {
     }
 
     @Test
+    fun `server selection while stopped never enables the service`() = runTest(dispatcher.scheduler) {
+        val (systemProxyController, backend) = newSystemProxyController()
+        DataStore.selectedProxy.set(createSocksProfile())
+        DataStore.systemProxy.set(true)
+        systemProxyController.attachHostForTest(daemon = true)
+        DataStore.serviceState = ServiceState.Stopped
+
+        systemProxyController.reloadIfRunning().join()
+
+        assertEquals(ServiceState.Stopped, DataStore.serviceState)
+        assertTrue(backend.enableCalls.isEmpty())
+        assertEquals(0, backend.disableCalls)
+    }
+
+    @Test
+    fun `server selection while connected reloads and preserves the enabled state`() = runTest(dispatcher.scheduler) {
+        val (systemProxyController, backend) = newSystemProxyController()
+        DataStore.selectedProxy.set(createSocksProfile())
+        DataStore.systemProxy.set(true)
+        systemProxyController.attachHostForTest(daemon = true)
+        systemProxyController.startLockedForTest()
+        val initialCalls = backend.enableCalls.toList()
+        assertEquals(1, initialCalls.size)
+        DataStore.mixedPort.set(3456)
+
+        systemProxyController.reloadIfRunning().join()
+
+        assertEquals(ServiceState.Connected, DataStore.serviceState)
+        assertEquals(1, backend.disableCalls)
+        assertEquals(initialCalls + (LOCALHOST4 to 3456), backend.enableCalls)
+    }
+
+    @Test
+    fun `a manual stop wins over a queued server change`() = runTest(dispatcher.scheduler) {
+        val (systemProxyController, backend) = newSystemProxyController()
+        DataStore.selectedProxy.set(createSocksProfile())
+        DataStore.systemProxy.set(true)
+        systemProxyController.attachHostForTest(daemon = true)
+        systemProxyController.startLockedForTest()
+        val starts = backend.enableCalls.size
+
+        val stop = systemProxyController.stop()
+        val selection = systemProxyController.reloadIfRunning()
+        stop.join()
+        selection.join()
+
+        assertEquals(ServiceState.Stopped, DataStore.serviceState)
+        assertEquals(starts, backend.enableCalls.size)
+    }
+
+    @Test
     fun `an enable failure keeps the preference true and a following toggle off does not disable`() =
         runTest(dispatcher.scheduler) {
             val backend = RecordingSystemProxyBackend().apply {

@@ -3,6 +3,9 @@ package fr.husi.shiftvps
 import fr.husi.database.DataStore
 import fr.husi.database.ProxyEntity
 import fr.husi.database.SagerDatabase
+import fr.husi.database.preference.int
+import fr.husi.database.preference.long
+import fr.husi.database.preference.string
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first

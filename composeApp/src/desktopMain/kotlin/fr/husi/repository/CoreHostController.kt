@@ -197,6 +197,10 @@ internal class CoreHostController(
         runExclusive { reloadLocked() }
     }
 
+    fun reloadIfRunning(): Job = runExclusive {
+        if (DataStore.serviceState.canStop) reloadLocked()
+    }
+
     fun stop(): Job = runExclusive {
         stopLocked()
     }

@@ -384,7 +384,7 @@ private fun ServerContent(
     onUpdate: () -> Unit,
     modifier: Modifier,
 ) {
-    val selectionLocked = state.serviceState.canStop || state.serviceState == ServiceState.Stopping
+    val selectionLocked = state.serviceState == ServiceState.Stopping
     LazyColumn(modifier.fillMaxWidth().selectableGroup(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
         if (updateState.phase != ShiftVpsUpdatePhase.Idle) {
             item { UpdateBanner(updateState, onUpdate); Spacer(Modifier.height(14.dp)) }
@@ -406,7 +406,6 @@ private fun ServerContent(
             val notice = when {
                 state.refreshing -> Res.string.shiftvps_refreshing
                 state.probing -> Res.string.shiftvps_checking_servers
-                selectionLocked -> Res.string.shiftvps_selection_locked
                 else -> null
             }
             if (notice != null) {

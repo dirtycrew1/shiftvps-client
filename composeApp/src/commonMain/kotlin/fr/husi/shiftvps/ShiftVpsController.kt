@@ -114,6 +114,7 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
     private var connectTimeoutJob: Job? = null
     private var summaryJob: Job? = null
     private var sessionGeneration = 0
+    private var serverSelectionRevision = 0L
     private var policy = ShiftVpsPolicy()
     private var account: ShiftVpsAccount? = null
     private var accountVerifiedAt = 0L
@@ -164,7 +165,9 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
                     }
                 }
                 state.update { it.copy(serviceState = status.state) }
-                if (status.state == ServiceState.Stopped) connectionPending = false
+                if (status.state == ServiceState.Stopped) {
+                    connectionPending = false
+                }
                 publishProfiles()
                 when {
                     PlatformInfo.isAndroid -> Unit
@@ -364,18 +367,84 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
 
     fun selectServer(id: Long) {
         if (state.value.accessState != ShiftVpsAccessState.Active) return
-        if (state.value.serviceState.started || connectionPending) return
+        if (state.value.serviceState == ServiceState.Stopping ||
+            (connectionPending && !state.value.serviceState.started)) return
         val candidates = candidates()
         val row = serverClusters(candidates, groups).firstOrNull { it.id == id } ?: return
         val profileId = chooseProfile(row, candidates) ?: return
-        userSelectedServer = true
-        selectedProfileId = profileId
-        state.update { it.copy(selectedId = id) }
-        scope.launch { DataStore.selectedProxy.set(profileId) }
+        val revision = ++serverSelectionRevision
+        if (state.value.selectedId == id) return
+        if (!state.value.serviceState.canStop) {
+            userSelectedServer = true
+            selectedProfileId = profileId
+            state.update { it.copy(selectedId = id) }
+            scope.launch {
+                operation.withLock {
+                    if (revision == serverSelectionRevision) DataStore.selectedProxy.set(profileId)
+                }
+            }
+            return
+        }
+        val generation = sessionGeneration
+        scope.launch {
+            connectionPreparation.withLock {
+                fun current() = generation == sessionGeneration && revision == serverSelectionRevision &&
+                    state.value.signedIn && state.value.accessState == ShiftVpsAccessState.Active &&
+                    state.value.serviceState.canStop
+                if (!current()) return@withLock
+                try {
+                    val token = verifiedConnectionToken()
+                    if (!current()) return@withLock
+                    val selected = profiles.firstOrNull { it.id == profileId } ?: throw ClientApiException("no_server")
+                    if (!isManagedProfileCompatible(selected)) throw ClientApiException("unsupported_transport")
+                    applyManagedPolicy(policy)
+                    storeManagedAndroidRouting(selected, policy)
+                    if (!current()) return@withLock
+                    DataStore.selectedProxy.set(profileId)
+                    DataStore.configurationStore.int("shiftvps.active_policy_version").set(policy.version)
+                    if (!current()) return@withLock
+                    userSelectedServer = true
+                    selectedProfileId = profileId
+                    connectionRequestId = Any()
+                    state.update { it.copy(selectedId = id, error = null, policyVersion = policy.version) }
+                    prepareServiceMetrics(tokenOwner(token), policy.version)
+                    if (current()) repository.reloadServiceIfRunning()
+                } catch (error: Exception) {
+                    if (error is CancellationException) throw error
+                    if (generation != sessionGeneration || revision != serverSelectionRevision) return@withLock
+                    handleFailure(error)
+                    metric("connect_failed", errorCode = diagnosticCode(error))
+                }
+            }
+        }
+    }
+
+    private suspend fun verifiedConnectionToken(): String {
+        val generation = sessionGeneration
+        val token = currentToken() ?: throw ClientApiException("invalid_token", 401)
+        val cached = account
+        if (cached != null) requireActiveAccount(cached)
+        if (cached == null || !recentVerification(accountVerifiedAt)) {
+            val manifest = api.manifest(token, policy)
+            requireActiveAccount(manifest.account)
+            operation.withLock {
+                if (generation != sessionGeneration || !state.value.signedIn) throw CancellationException()
+                account = manifest.account
+                policy = manifest.policy.validated()
+                accountVerifiedAt = System.currentTimeMillis()
+                cachedVerificationTime.set(accountVerifiedAt)
+                cachedAccount.set(clientJson.encodeToString(ShiftVpsAccount.serializer(), manifest.account))
+                cachedPolicy.set(clientJson.encodeToString(ShiftVpsPolicy.serializer(), policy))
+            }
+        }
+        if (generation != sessionGeneration || !state.value.signedIn) throw CancellationException()
+        return token
     }
 
     fun toggleConnection() {
         if (state.value.serviceState.canStop) {
+            serverSelectionRevision++
+            connectionRequestId = null
             repository.stopService()
             return
         }
@@ -389,18 +458,7 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
             if (!connectionPreparation.tryLock()) return@launch
             val generation = sessionGeneration
             try {
-                val token = currentToken() ?: throw ClientApiException("invalid_token", 401)
-                val cached = account
-                if (cached != null) requireActiveAccount(cached)
-                if (cached == null || !recentVerification(accountVerifiedAt)) {
-                    val manifest = api.manifest(token, policy)
-                    requireActiveAccount(manifest.account)
-                    account = manifest.account
-                    policy = manifest.policy.validated()
-                    accountVerifiedAt = System.currentTimeMillis()
-                    cachedVerificationTime.set(accountVerifiedAt)
-                    cachedAccount.set(clientJson.encodeToString(ShiftVpsAccount.serializer(), manifest.account))
-                }
+                val token = verifiedConnectionToken()
                 val candidates = candidates()
                 val row = serverClusters(candidates, groups).firstOrNull { it.id == state.value.selectedId }
                     ?: throw ClientApiException("no_server")
@@ -423,6 +481,8 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
                 prepareServiceMetrics(tokenOwner(token), policy.version)
                 eventQueue.send(ShiftVpsEvent.LaunchVpn)
             } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                if (generation != sessionGeneration) return@launch
                 handleFailure(error)
                 metric("connect_failed", errorCode = diagnosticCode(error))
             } finally { connectionPreparation.unlock() }
@@ -438,6 +498,7 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
     fun logout() { logoutSession(notifyServer = true) }
 
     private fun logoutSession(notifyServer: Boolean) {
+        serverSelectionRevision++
         sessionGeneration++
         summaryJob?.cancel()
         accountCoordinator.reset()

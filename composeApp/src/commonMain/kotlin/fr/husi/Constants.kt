@@ -234,6 +234,7 @@ object Action {
     const val SERVICE = "fr.husi.SERVICE"
     const val CLOSE = "fr.husi.CLOSE"
     const val RELOAD = "fr.husi.RELOAD"
+    const val RELOAD_IF_RUNNING = "fr.husi.RELOAD_IF_RUNNING"
 
     // const val SWITCH_WAKE_LOCK = "fr.husi.SWITCH_WAKELOCK"
     const val RESET_UPSTREAM_CONNECTIONS = "fr.husi.RESET_UPSTREAM_CONNECTIONS"

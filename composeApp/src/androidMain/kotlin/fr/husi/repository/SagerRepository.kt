@@ -134,6 +134,12 @@ open class SagerRepository(
         )
     }
 
+    override fun reloadServiceIfRunning() {
+        serviceContext.sendBroadcast(
+            Intent(Action.RELOAD_IF_RUNNING).setPackage(serviceContext.packageName),
+        )
+    }
+
     override suspend fun updateNotificationChannels() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
 

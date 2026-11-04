@@ -47,7 +47,7 @@ class SwitchActivity : PrivacyModeActivity() {
                     lifecycleScope.launch {
                         if (prepareManagedQuickConnection(choice.profileId)) {
                             // A stopped service has no reload receiver, so this never connects by itself.
-                            resolveRepository().reloadService()
+                            resolveRepository().reloadServiceIfRunning()
                             finish()
                         } else openMainScreen()
                     }

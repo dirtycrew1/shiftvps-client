@@ -130,6 +130,10 @@ open class DesktopRepository(
         coreHostController.reload()
     }
 
+    override fun reloadServiceIfRunning() {
+        coreHostController.reloadIfRunning()
+    }
+
     override fun stopService() {
         coreHostController.stop()
     }

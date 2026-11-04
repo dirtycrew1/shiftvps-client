@@ -65,6 +65,30 @@ import kotlin.test.assertTrue
 class ShiftVpsScreenSnapshotTest {
     private var frameTimeNanos = 0L
     @Test
+    fun `server rows accept one tap while connected or stopped without pressing the connection button`() = runBlocking {
+        withContext(Dispatchers.Swing) {
+            for (service in listOf(ServiceState.Stopped, ServiceState.Connected, ServiceState.Stopping)) {
+                var selected: Long? = null
+                var toggles = 0
+                snapshot("one-tap-${service.name.lowercase()}", 390, 900, fixture().copy(serviceState = service),
+                    onSelectServer = { selected = it }, onToggleConnection = { toggles++ }) { scene ->
+                    val label = textNode(scene, "Литва")
+                    val row = nodes(scene).filter {
+                        SemanticsActions.OnClick in it.config && it.boundsInRoot.contains(label.boundsInRoot.center)
+                    }.minBy { it.boundsInRoot.width * it.boundsInRoot.height }
+                    if (service == ServiceState.Stopping) {
+                        assertTrue(SemanticsProperties.Disabled in row.config)
+                    } else {
+                        assertFalse(SemanticsProperties.Disabled in row.config)
+                        clickText(scene, "Литва")
+                        assertEquals(-2L, selected)
+                    }
+                    assertEquals(0, toggles)
+                }
+            }
+        }
+    }
+    @Test
     fun `login remains a single browser sign in action`() = runBlocking {
         val signIn = getString(Res.string.shiftvps_sign_in)
         withContext(Dispatchers.Swing) {
@@ -942,6 +966,7 @@ class ShiftVpsScreenSnapshotTest {
         browserError: Boolean = false,
         clipboard: Clipboard = MemoryClipboard(),
         onToggleConnection: () -> Unit = {},
+        onSelectServer: (Long) -> Unit = {},
         onCheckAppUpdate: () -> Unit = {},
         onUpdate: () -> Unit = {},
         density: Density = Density(1f),
@@ -961,7 +986,7 @@ class ShiftVpsScreenSnapshotTest {
                             onCancelLogin = {},
                             onRefresh = {},
                             onCheckServers = {},
-                            onSelectServer = {},
+                            onSelectServer = onSelectServer,
                             onToggleConnection = onToggleConnection,
                             onLogout = {},
                             onDismissError = {},
