@@ -152,14 +152,14 @@ class ShiftVpsScreenSnapshotTest {
     }
 
     @Test
-    fun `connected state locks server changes and exposes disconnect`() = runBlocking {
+    fun `connected state allows server changes and exposes disconnect`() = runBlocking {
         val disconnect = getString(Res.string.shiftvps_disconnect)
         withContext(Dispatchers.Swing) {
             snapshot("connected-phone", 390, 844, fixture().copy(serviceState = ServiceState.Connected)) { scene ->
                 assertTrue(texts(scene).contains(disconnect))
                 val rows = radioRows(scene).toList()
                 assertEquals(3, rows.size)
-                assertTrue(rows.all { SemanticsProperties.Disabled in it.config })
+                assertTrue(rows.all { SemanticsProperties.Disabled !in it.config })
             }
         }
     }
@@ -477,7 +477,7 @@ class ShiftVpsScreenSnapshotTest {
                 }
                 assertEquals(0, connectionActions)
                 assertTrue(texts(scene).contains(disconnect))
-                assertTrue(radioRows(scene).all { SemanticsProperties.Disabled in it.config })
+                assertTrue(radioRows(scene).all { SemanticsProperties.Disabled !in it.config })
             }
         }
     }
