@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag
+        description: Release tag (created locally if absent for build-only runs)
         required: true
         type: string
       no-publish:
@@ -100,6 +100,8 @@ jobs:
   desktop:
     if: ${{ !inputs.android-only }}
     name: desktop (${{ matrix.id }})
+    permissions:
+      contents: read
     # One cell per GOOS/GOARCH so ProGuard, jlink and libcore bind run in
     # parallel instead of stacking into a single ~50 minute job. Windows thin
     # and -jbr packages share one cell (same uberjar, one package.sh run).
@@ -208,6 +210,18 @@ jobs:
             echo "WINDOWS_NO_SIGN=1" >> "$GITHUB_ENV"
           else
             echo "WINDOWS_NO_SIGN=0" >> "$GITHUB_ENV"
+          fi
+      - name: Set local packaging tag for build-only run
+        if: ${{ inputs.no-publish }}
+        shell: bash
+        run: |
+          version=$(awk -F= '$1 == "VERSION_NAME" { print $2; exit }' husi.properties)
+          [[ -n "$version" ]]
+          tag="v$version"
+          if git show-ref --verify --quiet "refs/tags/$tag"; then
+            test "$(git rev-parse "refs/tags/$tag^{commit}")" = "$(git rev-parse HEAD)"
+          else
+            git tag "$tag" HEAD
           fi
       - name: Build desktop packages
         env:
