@@ -54,11 +54,33 @@
         android:required="false" />
 
     <queries>
+        <package android:name="com.avito.android" />
+        <package android:name="com.google.android.gms" />
+        <package android:name="com.idamob.tinkoff.android" />
+        <package android:name="com.uma.musicvk" />
+        <package android:name="com.vk.vkvideo" />
+        <package android:name="com.vkontakte.android" />
+        <package android:name="com.wildberries.ru" />
+        <package android:name="com.yandex.browser" />
+        <package android:name="ru.alfabank.mobile.android" />
+        <package android:name="ru.dublgis.dgismobile" />
+        <package android:name="ru.kinopoisk" />
+        <package android:name="ru.mail.mailapp" />
+        <package android:name="ru.megamarket.marketplace" />
+        <package android:name="ru.mts.mymts" />
+        <package android:name="ru.ok.android" />
         <package android:name="ru.oneme.app" />
-        <package android:name="ru.yandex.taxi" />
-        <package android:name="ru.rostel" />
-        <package android:name="ru.sberbankmobile" />
         <package android:name="ru.ozon.app.android" />
+        <package android:name="ru.rostel" />
+        <package android:name="ru.rutube.app" />
+        <package android:name="ru.sbcs.store" />
+        <package android:name="ru.sberbankmobile" />
+        <package android:name="ru.vk.store" />
+        <package android:name="ru.vtb24.mobilebanking.android" />
+        <package android:name="ru.yandex.music" />
+        <package android:name="ru.yandex.taxi" />
+        <package android:name="ru.yandex.yandexmaps" />
+        <package android:name="ru.zen.android" />
         <intent>
             <action android:name="io.nekohasekai.sagernet.plugin.ACTION_NATIVE_PLUGIN" />
         </intent>

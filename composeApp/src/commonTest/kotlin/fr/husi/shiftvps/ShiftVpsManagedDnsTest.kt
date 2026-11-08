@@ -25,7 +25,8 @@ class ShiftVpsManagedDnsTest {
     private fun dnsServer(options: JSONMap, name: String, type: String, inbound: String): String? {
         val dns=options["dns"] as Map<String, Any?>
         val rule=(dns["rules"] as List<Map<String, Any?>>).firstOrNull { rule ->
-            (rule["domain_suffix"] as? List<String>)?.any { name==it || name.endsWith(".$it") }!=false &&
+            "process_path_regex" !in rule && (rule["domain"] as? List<String>)?.contains(name)!=false &&
+                (rule["domain_suffix"] as? List<String>)?.any { name==it || name.endsWith(".$it") }!=false &&
                 (rule["query_type"] as? List<String>)?.contains(type)!=false &&
                 (rule["inbound"] as? List<String>)?.contains(inbound)!=false
         }
@@ -38,7 +39,7 @@ class ShiftVpsManagedDnsTest {
     private fun route(options: JSONMap, domain: String?, ip: String, port: Int=443, network: String="tcp"): Selection {
         val route=options["route"] as Map<String, Any?>
         val rule=(route["rules"] as List<Map<String, Any?>>).firstOrNull { rule ->
-            rule["action"]=="route" &&
+            rule["action"]=="route" && "process_path_regex" !in rule && "package_name" !in rule && "ip_cidr" !in rule &&
                 (rule["domain"] as? List<String>)?.contains(domain)!=false &&
                 (rule["domain_suffix"] as? List<String>)?.any { domain==it || domain?.endsWith(".$it")==true }!=false &&
                 (rule["network"] as? List<String>)?.contains(network)!=false &&

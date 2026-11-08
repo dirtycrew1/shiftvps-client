@@ -4,6 +4,16 @@ import kotlinx.serialization.Serializable
 
 internal const val MANAGED_ANDROID_ROUTING_KEY = "shiftvps.android_routing_snapshot"
 
+// Exact packages documented by RKS Global, plus the existing direct apps and RuStore push distributors.
+internal val requiredDirectAndroidPackages = setOf(
+    "com.avito.android", "com.idamob.tinkoff.android", "com.uma.musicvk", "com.vk.vkvideo",
+    "com.vkontakte.android", "com.wildberries.ru", "com.yandex.browser", "ru.alfabank.mobile.android", "ru.dublgis.dgismobile",
+    "ru.kinopoisk", "ru.mail.mailapp", "ru.megamarket.marketplace", "ru.mts.mymts", "ru.ok.android",
+    "ru.oneme.app", "ru.ozon.app.android", "ru.rostel", "ru.rutube.app", "ru.sbcs.store",
+    "ru.sberbankmobile", "ru.vk.store", "ru.vtb24.mobilebanking.android", "ru.yandex.music", "ru.yandex.taxi",
+    "ru.yandex.yandexmaps", "ru.zen.android",
+)
+
 private val androidPackagePattern = Regex("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+")
 private val protectedPackageFamilies = setOf(
     "android", "com.android", "com.google", "com.huawei", "ru.shiftvps.client",
