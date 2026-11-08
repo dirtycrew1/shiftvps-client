@@ -56,11 +56,18 @@ internal suspend fun probeServer(
     config: ConfigBuildResult,
     latency: ShiftVpsLatency,
     plugins: List<PluginProcessSpec>,
-): ServerProbeResult = try {
-    val measured = core.standaloneUrlTest(
+): ServerProbeResult = measureServer {
+    core.standaloneUrlTest(
         config.configJson, config.metadata.mainTag, latency.testUrl,
         latency.timeoutMs, urlTestOptions(false, false), plugins,
     )
+}
+
+internal suspend fun probeActiveServer(core: CoreClient, latency: ShiftVpsLatency, url: String): ServerProbeResult =
+    measureServer { core.urlTest("", url, latency.timeoutMs, urlTestOptions(false, false)) }
+
+private suspend fun measureServer(measure: suspend () -> Int): ServerProbeResult = try {
+    val measured = measure()
     // The core can complete a successful HTTP request in less than one millisecond.
     if (measured >= 0) ServerProbeResult.Success(measured.coerceAtLeast(1))
     else ServerProbeResult.Inconclusive(ServerProbeFailure.InvalidResult)

@@ -2,6 +2,7 @@ package fr.husi.shiftvps
 
 import fr.husi.BuildConfig
 import fr.husi.bg.BackendState
+import fr.husi.bg.DefaultNetworkListener
 import fr.husi.bg.ServiceState
 import fr.husi.core.CoreClient
 import fr.husi.database.DataStore
@@ -30,15 +31,20 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
@@ -49,6 +55,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.Serializable
 import org.koin.core.context.GlobalContext
@@ -60,10 +67,15 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.UUID
 import javax.net.ssl.SSLException
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
     companion object {
         private const val MANAGED_GROUP = "ShiftVPS managed"
+        private const val HEALTH_INTERVAL_MS = 60_000L
+        private const val NETWORK_SETTLE_MS = 4_000L
+        private val RECOVERY_COOLDOWN = 90.seconds
         private val activeController = java.util.concurrent.atomic.AtomicReference<ShiftVpsController?>()
 
         /** Serializes a desktop installer with account verification and a queued connect action. */
@@ -111,6 +123,7 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
     private var summaryJob: Job? = null
     private var sessionGeneration = 0
     private var serverSelectionRevision = 0L
+    private var lastRecoverySwitch: TimeSource.Monotonic.ValueTimeMark? = null
     private var policy = ShiftVpsPolicy()
     private var account: ShiftVpsAccount? = null
     private var accountVerifiedAt = 0L
@@ -197,6 +210,71 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
                 delay(policy.telemetry.batchIntervalSeconds * 1000L)
                 flushMetrics()
             }
+        }
+        scope.launch {
+            BackendState.status.map { it.state == ServiceState.Connected }.distinctUntilChanged().collectLatest { connected ->
+                if (connected) recoverActiveConnection()
+            }
+        }
+    }
+
+    private suspend fun recoverActiveConnection() {
+        val networkChanges = Channel<Unit>(Channel.CONFLATED)
+        val listenerKey = Any()
+        try {
+            DefaultNetworkListener.start(listenerKey) { networkChanges.trySend(Unit) }
+            while (currentCoroutineContext().isActive) {
+                if (withTimeoutOrNull(HEALTH_INTERVAL_MS) { networkChanges.receive() } != null) {
+                    delay(NETWORK_SETTLE_MS)
+                    networkChanges.tryReceive()
+                }
+                if (lastRecoverySwitch?.elapsedNow()?.let { it < RECOVERY_COOLDOWN } == true) continue
+                val profileId = selectedProfileId ?: continue
+                val groupId = state.value.selectedId ?: continue
+                val generation = sessionGeneration
+                val revision = serverSelectionRevision
+                fun current() = generation == sessionGeneration && revision == serverSelectionRevision &&
+                    selectedProfileId == profileId && state.value.selectedId == groupId &&
+                    state.value.signedIn && state.value.accessState == ShiftVpsAccessState.Active &&
+                    state.value.serviceState == ServiceState.Connected && !connectionPending
+                if (!current() || connectionPreparation.isLocked || survey.isLocked) continue
+                val candidates = candidates()
+                val cluster = serverClusters(candidates, groups).firstOrNull { it.id == groupId } ?: continue
+                if (profileId !in cluster.profileIds || DataStore.currentProfile.get() != profileId) continue
+                val latency = policy.latency
+                try {
+                    val replacement = chooseRecoveryProfile(cluster, profileId, candidates, latency.testUrl,
+                        checkActive = { url ->
+                            if (!current()) ServerProbeResult.Inconclusive(ServerProbeFailure.Setup)
+                            else probeActiveServer(core, latency, url)
+                        },
+                        checkCandidate = { candidate ->
+                            val profile = profiles.firstOrNull { it.id == candidate.profileId }
+                            if (!current() || profile == null || !isManagedProfileCompatible(profile)) {
+                                ServerProbeResult.Inconclusive(ServerProbeFailure.Setup)
+                            } else probeManagedProfile(core, profile, latency)
+                        },
+                    ) ?: continue
+                    if (!current() || !connectionPreparation.tryLock()) continue
+                    try {
+                        val token = verifiedConnectionToken()
+                        if (!current() || DataStore.currentProfile.get() != profileId) continue
+                        val selected = profiles.firstOrNull { it.id == replacement } ?: continue
+                        if (selectedProfileId == selected.id || !isManagedProfileCompatible(selected)) continue
+                        if (reloadManagedRoute(groupId, selected, token, ::current)) lastRecoverySwitch = TimeSource.Monotonic.markNow()
+                    } finally {
+                        connectionPreparation.unlock()
+                    }
+                } catch (error: Exception) {
+                    if (error is CancellationException) throw error
+                    if (current() && error is ClientApiException && (error.status == 401 || error.code == "subscription_expired")) {
+                        handleFailure(error)
+                    }
+                }
+            }
+        } finally {
+            withContext(NonCancellable) { DefaultNetworkListener.stop(listenerKey) }
+            networkChanges.close()
         }
     }
 
@@ -395,17 +473,8 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
                     val resolved = prepareConnectionProfile(row, ::current)
                     val selected = profiles.firstOrNull { it.id == resolved } ?: throw ClientApiException("no_server")
                     if (!isManagedProfileCompatible(selected)) throw ClientApiException("unsupported_transport")
-                    storeManagedAndroidRouting(selected, policy)
-                    if (!current()) return@withLock
-                    DataStore.selectedProxy.set(resolved)
-                    DataStore.configurationStore.int("shiftvps.active_policy_version").set(policy.version)
-                    if (!current()) return@withLock
                     userSelectedServer = true
-                    selectedProfileId = resolved
-                    connectionRequestId = Any()
-                    state.update { it.copy(selectedId = id, error = null, policyVersion = policy.version) }
-                    prepareServiceMetrics(tokenOwner(token), policy.version)
-                    if (current()) repository.reloadServiceIfRunning()
+                    reloadManagedRoute(id, selected, token, ::current)
                 } catch (error: Exception) {
                     if (error is CancellationException) throw error
                     if (generation != sessionGeneration || revision != serverSelectionRevision) return@withLock
@@ -414,6 +483,23 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
                 }
             }
         }
+    }
+
+    private suspend fun reloadManagedRoute(
+        groupId: Long, selected: ProxyEntity, token: String, current: () -> Boolean,
+    ): Boolean {
+        if (!current()) return false
+        storeManagedAndroidRouting(selected, policy)
+        if (!current()) return false
+        DataStore.selectedProxy.set(selected.id)
+        DataStore.configurationStore.int("shiftvps.active_policy_version").set(policy.version)
+        if (!current()) return false
+        selectedProfileId = selected.id
+        connectionRequestId = Any()
+        state.update { it.copy(selectedId = groupId, error = null, policyVersion = policy.version) }
+        prepareServiceMetrics(tokenOwner(token), policy.version)
+        repository.reloadServiceIfRunning()
+        return true
     }
 
     private suspend fun verifiedConnectionToken(): String {

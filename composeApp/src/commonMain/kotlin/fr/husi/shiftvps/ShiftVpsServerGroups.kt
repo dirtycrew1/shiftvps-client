@@ -71,6 +71,7 @@ internal fun chooseProfile(
 internal suspend fun chooseConnectionProfile(
     cluster: ServerCluster,
     candidates: List<ServerCandidate>,
+    allowUnverified: Boolean = true,
     probe: suspend (ServerCandidate) -> ServerProbeResult,
 ): Long? {
     val ordered = candidates.filter { it.profileId in cluster.profileIds }.sortedWith(
@@ -81,7 +82,25 @@ internal suspend fun chooseConnectionProfile(
         if (probe(candidate) is ServerProbeResult.Success) return candidate.profileId
     }
     // A test-site or core failure is inconclusive; retain the ability to try the preferred VPN route.
-    return ordered.firstOrNull()?.profileId
+    return if (allowUnverified) ordered.firstOrNull()?.profileId else null
+}
+
+internal suspend fun chooseRecoveryProfile(
+    cluster: ServerCluster,
+    activeId: Long,
+    candidates: List<ServerCandidate>,
+    primaryTestUrl: String,
+    checkActive: suspend (String) -> ServerProbeResult,
+    checkCandidate: suspend (ServerCandidate) -> ServerProbeResult,
+): Long? {
+    val alternatives = candidates.filter { it.profileId != activeId && it.profileId in cluster.profileIds }
+    if (alternatives.isEmpty()) return null
+    val urls = listOf(primaryTestUrl) + ShiftVpsPolicy.ALLOWED_PROBE_URLS.filter { it != primaryTestUrl }
+    for (url in urls) {
+        val failure = (checkActive(url) as? ServerProbeResult.Inconclusive)?.reason ?: return null
+        if (failure !in setOf(ServerProbeFailure.Timeout, ServerProbeFailure.Dns, ServerProbeFailure.Tls, ServerProbeFailure.Unknown)) return null
+    }
+    return chooseConnectionProfile(cluster, alternatives, allowUnverified = false, probe = checkCandidate)
 }
 
 internal fun clusterRow(

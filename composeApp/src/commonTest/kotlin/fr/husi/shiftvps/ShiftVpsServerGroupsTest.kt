@@ -79,6 +79,34 @@ class ShiftVpsServerGroupsTest {
     }
 
     @Test
+    fun `recovery requires two failed targets and a confirmed route in the current location`() = runTest {
+        val candidates = listOf(ServerCandidate(1, endpointA, "Direct"), ServerCandidate(2, endpointB, "Relay"),
+            ServerCandidate(3, endpointC, "Other country"))
+        val cluster = ServerCluster(-1, "Country", listOf(1, 2), directProfileIds = listOf(1))
+        val targets = ShiftVpsPolicy.ALLOWED_PROBE_URLS.toList()
+        val seen = mutableListOf<String>()
+        val timeout = ServerProbeResult.Inconclusive(ServerProbeFailure.Timeout)
+
+        assertEquals(null, chooseRecoveryProfile(cluster, 1, candidates, targets[0],
+            checkActive = { if (it == targets[0]) timeout else ServerProbeResult.Success(120) },
+            checkCandidate = { error("A live route should be preserved") },
+        ))
+        assertEquals(null, chooseRecoveryProfile(cluster, 1, candidates, targets[0],
+            checkActive = { ServerProbeResult.Inconclusive(ServerProbeFailure.CoreUnavailable) },
+            checkCandidate = { error("An unavailable core does not identify a route failure") },
+        ))
+        assertEquals(null, chooseRecoveryProfile(cluster, 1, candidates, targets[0],
+            checkActive = { timeout },
+            checkCandidate = { assertEquals(2L, it.profileId); timeout },
+        ))
+        assertEquals(2L, chooseRecoveryProfile(cluster, 1, candidates, targets[0],
+            checkActive = { seen += it; timeout },
+            checkCandidate = { assertEquals(2L, it.profileId); ServerProbeResult.Success(150) },
+        ))
+        assertEquals(targets, seen)
+    }
+
+    @Test
     fun `country flags come only from the authoritative node and tolerate old cached metadata`() {
         val candidates = listOf(ServerCandidate(1, endpointA, "Misleading Germany"))
         val grouped = serverClusters(candidates, listOf(node.copy(countryCode = "nl"))).single()
