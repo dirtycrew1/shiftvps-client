@@ -1,11 +1,15 @@
 package fr.husi.shiftvps
 
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
+import java.net.URI
+import java.net.UnknownHostException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -111,6 +115,71 @@ class ShiftVpsApiTest {
             ShiftVpsApi(transport).token("fixture-grant", createVerifier())
         }
         assertEquals(1, calls.size)
+    }
+
+    @Test
+    fun `concurrent requests try the backup of the host each request actually used`() = runTest {
+        val firstStarted = CompletableDeferred<Unit>()
+        val releaseFirst = CompletableDeferred<Unit>()
+        val hosts = mutableListOf<String>()
+        val api = ShiftVpsApi(object : ClientTransport {
+            override suspend fun request(method: String, url: String, token: String?, body: String?): ClientResponse {
+                val host = URI(url).host
+                hosts.add(host)
+                if (host == "shiftvps.ru") {
+                    if (hosts.size == 1) {
+                        firstStarted.complete(Unit)
+                        releaseFirst.await()
+                    }
+                    throw UnknownHostException(host)
+                }
+                return ClientResponse(200, "personal feed")
+            }
+        })
+        val first = async { api.feed("first-fixture") }
+        firstStarted.await()
+        assertEquals("personal feed", api.feed("second-fixture"))
+        releaseFirst.complete(Unit)
+        assertEquals("personal feed", first.await())
+        assertEquals(listOf("shiftvps.ru", "shiftvps.ru", "web-backup.shiftvps.ru", "web-backup.shiftvps.ru"), hosts)
+    }
+
+    @Test
+    fun `gateway errors fail over reads while token exchanges still send exactly once`() = runTest {
+        for (status in listOf(502, 503, 504)) {
+            val hosts = mutableListOf<String>()
+            val transport = object : ClientTransport {
+                override suspend fun request(method: String, url: String, token: String?, body: String?): ClientResponse {
+                    val host = URI(url).host
+                    hosts.add(host)
+                    return if (host == "shiftvps.ru") ClientResponse(status, "gateway error")
+                    else ClientResponse(200, "personal feed")
+                }
+            }
+            assertEquals("personal feed", ShiftVpsApi(transport).feed("fixture-token"))
+            assertEquals(listOf("shiftvps.ru", "web-backup.shiftvps.ru"), hosts)
+            hosts.clear()
+            val error = assertFailsWith<ClientApiException> { ShiftVpsApi(transport).token("fixture", createVerifier()) }
+            assertEquals(status, error.status)
+            assertEquals(listOf("shiftvps.ru"), hosts)
+        }
+    }
+
+    @Test
+    fun `unreachable backup preserves the primary HTTP error`() = runTest {
+        val hosts = mutableListOf<String>()
+        val api = ShiftVpsApi(object : ClientTransport {
+            override suspend fun request(method: String, url: String, token: String?, body: String?): ClientResponse {
+                val host = URI(url).host
+                hosts.add(host)
+                if (host == "web-backup.shiftvps.ru") throw UnknownHostException()
+                return ClientResponse(503, """{"error":"account_summary_unavailable"}""")
+            }
+        })
+        val error = assertFailsWith<ClientApiException> { api.accountSummary("fixture-session") }
+        assertEquals("account_summary_unavailable", error.code)
+        assertEquals(503, error.status)
+        assertEquals(listOf("shiftvps.ru", "web-backup.shiftvps.ru"), hosts)
     }
 
     @Test

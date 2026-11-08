@@ -1,5 +1,6 @@
 package fr.husi.shiftvps
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
@@ -343,15 +344,28 @@ internal class ShiftVpsApi(private val transport: ClientTransport = HttpsClientT
     }
 
     private suspend fun request(method: String, path: String, token: String? = null, body: String? = null): String {
-        val response = try {
-            transport.request(method, "$origin/api/client/v1$path", token, body)
+        val firstOrigin = origin
+        // An abandoned pending grant expires. Token exchanges and other writes cannot be replayed.
+        val canFailOver = method == "GET" || path == "/authorize"
+        suspend fun send(host: String) = transport.request(method, "$host/api/client/v1$path", token, body)
+
+        val primary = try {
+            send(firstOrigin)
         } catch (error: Exception) {
-            if (error is kotlinx.coroutines.CancellationException) throw error
-            // Creating an abandoned pending grant is harmless. Token exchanges and mutations are never replayed.
-            if (method != "GET" && path != "/authorize") throw error
-            val fallback = if (origin == "https://shiftvps.ru") "https://web-backup.shiftvps.ru" else "https://shiftvps.ru"
-            transport.request(method, "$fallback/api/client/v1$path", token, body).also { origin = fallback }
+            if (error is CancellationException || !canFailOver) throw error
+            null
         }
+        val response = if (canFailOver && (primary == null || primary.status in RETRYABLE_HTTP_STATUS)) {
+            val fallback = if (firstOrigin == "https://shiftvps.ru") "https://web-backup.shiftvps.ru" else "https://shiftvps.ru"
+            try {
+                val retry = send(fallback)
+                if (retry.status in RETRYABLE_HTTP_STATUS) primary ?: retry
+                else retry.also { origin = fallback }
+            } catch (error: Exception) {
+                if (error is CancellationException || primary == null) throw error
+                primary
+            }
+        } else checkNotNull(primary)
         if (response.status !in 200..299) {
             val returnedCode = runCatching {
                 clientJson.parseToJsonElement(response.body) as JsonObject
@@ -362,6 +376,7 @@ internal class ShiftVpsApi(private val transport: ClientTransport = HttpsClientT
     }
 
     companion object {
+        private val RETRYABLE_HTTP_STATUS = setOf(502, 503, 504)
         private val API_ERRORS = setOf(
             "authorization_pending", "slow_down", "expired_token", "access_denied", "invalid_grant",
             "invalid_token", "token_expired", "subscription_expired", "device_limit", "device_deleted", "unauthorized",
