@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
-<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0"><channel><title>ShiftVPS updates</title><item><title>ShiftVPS 0.1.17</title><sparkle:version>18</sparkle:version><sparkle:shortVersionString>0.1.17</sparkle:shortVersionString><sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion><enclosure url="https://shiftvps.ru/downloads/shiftvps-0.1.17-macos-arm64.dmg" length="122301775" type="application/octet-stream" sparkle:edSignature="j0Wf0g4LQMWh9G9qxlPQ4HjB7a8ylw30ymDztLTqa7WrdGaIoEvGTw3FGGPok5mTsnb1BLQQeDUY1e5yr1gBBA==" sparkle:version="18" sparkle:shortVersionString="0.1.17" /></item></channel></rss>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0"><channel><title>ShiftVPS updates</title><item><title>ShiftVPS 0.1.18</title><sparkle:version>19</sparkle:version><sparkle:shortVersionString>0.1.18</sparkle:shortVersionString><sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion><enclosure url="https://shiftvps.ru/downloads/shiftvps-0.1.18-macos-arm64.dmg" length="122762957" type="application/octet-stream" sparkle:edSignature="j5y5AsLxWAHmoWxxOTWmwwLbNtFBWcD7vrLnvRVNR4WczrZiUAUVDFuC3sWlDE+IH3WmAxg1BRo2wmFPPzKICQ==" sparkle:version="19" sparkle:shortVersionString="0.1.18" /></item></channel></rss>
 <!-- sparkle-signatures:
-edSignature: k3nWQVY0gVTS5f7lyxjdNr5JISI21osh5DSqzAfXFBLoAjhpWTk2MIGq5wmwIfpI4HNaQqOIeHUNaYaLzsMgAw==
+edSignature: 2MRRL7WWfGE5ilu0k17Yau6k3ltnSICIz0SB7o4S7NhRtV2LpOAS1Ag5bpSsksreoX5L6xwy1xEjH/TJJJwmCw==
 length: 691
 -->
