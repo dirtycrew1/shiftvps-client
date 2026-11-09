@@ -16,19 +16,7 @@ import org.jetbrains.compose.resources.painterResource
 /** Country comes only from authoritative server metadata; names are not parsed. */
 @Composable
 internal fun ShiftVpsCountryFlag(countryCode: String, modifier: Modifier = Modifier) {
-    val resource = when (countryCode) {
-        "NL" -> Res.drawable.flag_nl
-        "LT" -> Res.drawable.flag_lt
-        "LV" -> Res.drawable.flag_lv
-        "IL" -> Res.drawable.flag_il
-        "SE" -> Res.drawable.flag_se
-        "FI" -> Res.drawable.flag_fi
-        "DE" -> Res.drawable.flag_de
-        "EE" -> Res.drawable.flag_ee
-        "KZ" -> Res.drawable.flag_kz
-        "GE" -> Res.drawable.flag_ge
-        else -> null
-    }
+    val resource = Res.allDrawableResources["flag_${countryCode.lowercase()}"]
     if (resource == null) {
         Icon(painterResource(Res.drawable.public_icon), contentDescription = null,
             tint = ShiftVpsPalette.Muted, modifier = modifier.size(28.dp, 21.dp))

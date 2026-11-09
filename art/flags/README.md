@@ -6,4 +6,6 @@ The source and generated native VectorDrawables are licensed under MIT, copyrigh
 
 `generate.py` expands source transforms, references, circles and paths into shared VectorDrawable geometry. Regenerate from this directory with `python generate.py` using svglib/reportlab. These tools are not application dependencies. The flat 4:3 icon composition is retained, including the full Kazakhstan emblem and Israel star. No flag emoji glyph or OS font support is needed.
 
+The remaining two-letter flags from the same revision are bundled as 112 × 84 PNGs. Regenerate them with `python generate_pack.py /path/to/flag-icons.zip` using `resvg-py` from `buildScript/icon-requirements.txt`. Use the ZIP of the pinned revision. The generator skips the generic `xx` image and codes with an existing VectorDrawable.
+
 Only authoritative two-letter server country metadata selects a flag. Server labels and hostnames are never parsed for a country; unknown or unsupported metadata displays the existing neutral globe. Names remain readable text and the flag is decorative for accessibility.

@@ -240,10 +240,13 @@ class ShiftVpsScreenSnapshotTest {
     }
 
     @Test
-    fun `country flags render as native vectors with a neutral unknown fallback`() = runBlocking {
+    fun `country flags render from the bundled catalog with a neutral unknown fallback`() = runBlocking {
         withContext(Dispatchers.Swing) {
-            val codes = listOf("NL", "LT", "LV", "IL", "SE", "FI", "DE", "EE", "KZ", "GE", "")
-            val scene = ImageComposeScene(460, 460, Density(1f), coroutineContext = Dispatchers.Swing) {
+            val codes = listOf("NL", "LT", "LV", "IL", "SE", "FI", "DE", "FR", "EE", "KZ", "GE",
+                "GB", "US", "BR", "JP", "AU", "CA", "IN", "NZ", "UA", "ZZ", "")
+            assertEquals(256, Res.allDrawableResources.keys.count { it.startsWith("flag_") })
+            assertFalse(Res.allDrawableResources.containsKey("flag_zz"))
+            val scene = ImageComposeScene(460, 690, Density(1f), coroutineContext = Dispatchers.Swing) {
                 ShiftVpsTheme {
                     Column(Modifier.background(ShiftVpsPalette.Background)) {
                         PreviewCaption()
