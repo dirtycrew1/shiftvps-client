@@ -20,6 +20,20 @@ class ShiftVpsMetricOutboxTest {
         appVersion = "0.1.0", platform = "android", policyVersion = 1)
 
     @Test
+    fun `quality and speed samples survive a retry with separate fields`() {
+        val response = metric(420).copy(event = "connection_quality")
+        val failure = response.copy(latencyMs = null, errorCode = "timeout")
+        val speed = response.copy(event = "speed_sample", latencyMs = null, downloadKbps = 12_000)
+        val queue = ClientMetricOutbox.decode("", now)
+        listOf(response, failure, speed).forEach { queue.append(owner, it, now) }
+        assertEquals(listOf(response, failure, speed),
+            ClientMetricOutbox.decode(queue.encode(), now).peek(owner, now).map { it.metric })
+        assertFalse(speed.copy(downloadKbps = 0).isSafeMetric())
+        assertFalse(response.copy(errorCode = "timeout").isSafeMetric())
+        assertFalse(failure.copy(errorCode = null).isSafeMetric())
+    }
+
+    @Test
     fun `persistent queue is bounded and sends at most twenty records per request`() {
         val queue = ClientMetricOutbox.decode("", now)
         repeat(120) { queue.append(owner, metric(it), now) }

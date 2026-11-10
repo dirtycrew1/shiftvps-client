@@ -131,6 +131,10 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
     private var selectedProfileId: Long? = null
     private var connectionPending = false
     private var connectionRequestId: Any? = null
+    private class FirstResponseAttempt(val startedAt: TimeSource.Monotonic.ValueTimeMark)
+    private var firstResponseAttempt: FirstResponseAttempt? = null
+    private var firstResponseJob: Job? = null
+    private var speedJob: Job? = null
     private var profiles = emptyList<ProxyEntity>()
     private var groups = emptyList<ShiftVpsServerGroup>()
     private val measurements = mutableMapOf<Long, ServerCandidate>()
@@ -176,7 +180,10 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
                 state.update { it.copy(serviceState = status.state) }
                 if (status.state == ServiceState.Stopped) {
                     connectionPending = false
+                    if (previous != ServiceState.Idle) recordFirstResponseFailure("network_unreachable")
                 }
+                if (!status.state.connected && previous.connected) clearSpeedTest()
+                if (status.state.connected && !previous.connected) checkFirstResponse()
                 publishProfiles()
                 when {
                     PlatformInfo.isAndroid -> Unit
@@ -188,9 +195,9 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
                     connectTimeoutJob = scope.launch {
                         delay(policy.connectTimeoutMs.toLong())
                         if (BackendState.status.value.state == ServiceState.Connecting) {
+                            metric("connect_failed", errorCode = "timeout")
                             repository.stopService()
                             state.update { it.copy(error = "Сервер не ответил. Выберите другой сервер и попробуйте ещё раз.") }
-                            metric("connect_failed", errorCode = "timeout")
                         }
                     }
                 } else if (status.state != ServiceState.Connecting) {
@@ -202,7 +209,8 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
         scope.launch {
             BackendState.alerts.collect {
                 state.update { it.copy(error = "Не удалось установить соединение. Попробуйте другой сервер.") }
-                if (!PlatformInfo.isAndroid) metric("connect_failed", errorCode = "configuration")
+                if (PlatformInfo.isAndroid) recordFirstResponseFailure("configuration")
+                else metric("connect_failed", errorCode = "configuration")
             }
         }
         scope.launch {
@@ -439,6 +447,75 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
         scope.launch { surveySafely() }
     }
 
+    fun testSpeed() {
+        val current = state.value
+        if (!current.signedIn || !current.serviceState.connected || current.speedChecking) return
+        val profile = profiles.firstOrNull { it.id == selectedProfileId } ?: return
+        state.update { it.copy(speedChecking = true, downloadKbps = null, speedFailed = false) }
+        speedJob = scope.launch {
+            val measured = try {
+                if (DataStore.currentProfile.get() == profile.id) measureDownloadKbps(core) else null
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                null
+            }
+            if (state.value.serviceState.connected && selectedProfileId == profile.id &&
+                DataStore.currentProfile.get() == profile.id
+            ) {
+                state.update { it.copy(speedChecking = false, downloadKbps = measured, speedFailed = measured == null) }
+                if (measured != null) metric("speed_sample", profile, downloadKbps = measured)
+            } else {
+                state.update { it.copy(speedChecking = false) }
+            }
+        }
+    }
+
+    private fun clearSpeedTest() {
+        speedJob?.cancel()
+        speedJob = null
+        state.update { it.copy(speedChecking = false, downloadKbps = null, speedFailed = false) }
+    }
+
+    private fun checkFirstResponse() {
+        val attempt = firstResponseAttempt ?: return
+        val profile = profiles.firstOrNull { it.id == selectedProfileId }
+        if (profile == null) {
+            recordFirstResponseFailure("configuration")
+            return
+        }
+        firstResponseJob = scope.launch {
+            if (DataStore.currentProfile.get() != profile.id) {
+                firstResponseAttempt = null
+                metric("connection_quality", profile, errorCode = "configuration")
+                return@launch
+            }
+            val latency = policy.latency
+            val result = withTimeoutOrNull(latency.timeoutMs.toLong()) { probeActiveServer(core, latency, latency.testUrl) }
+            if (firstResponseAttempt !== attempt || !state.value.serviceState.connected ||
+                selectedProfileId != profile.id || DataStore.currentProfile.get() != profile.id
+            ) return@launch
+            firstResponseAttempt = null
+            when (result) {
+                is ServerProbeResult.Success -> metric("connection_quality", profile,
+                    latency = attempt.startedAt.elapsedNow().inWholeMilliseconds.coerceIn(0, 60_000).toInt())
+                is ServerProbeResult.Inconclusive -> metric("connection_quality", profile, errorCode = result.reason.metricCode)
+                null -> metric("connection_quality", profile, errorCode = "timeout")
+            }
+        }
+    }
+
+    private fun recordFirstResponseFailure(code: String) {
+        if (firstResponseAttempt == null) return
+        clearFirstResponse()
+        metric("connection_quality", errorCode = code)
+    }
+
+    private fun clearFirstResponse() {
+        firstResponseAttempt = null
+        firstResponseJob?.cancel()
+        firstResponseJob = null
+    }
+
     fun selectServer(id: Long) {
         if (state.value.accessState != ShiftVpsAccessState.Active) return
         if (state.value.serviceState == ServiceState.Stopping ||
@@ -446,8 +523,9 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
         val candidates = candidates()
         val row = serverClusters(candidates, groups).firstOrNull { it.id == id } ?: return
         val profileId = chooseProfile(row, candidates) ?: return
-        val revision = ++serverSelectionRevision
         if (state.value.selectedId == id) return
+        val revision = ++serverSelectionRevision
+        clearFirstResponse()
         if (!state.value.serviceState.canStop) {
             userSelectedServer = true
             selectedProfileId = profileId
@@ -494,6 +572,8 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
         DataStore.selectedProxy.set(selected.id)
         DataStore.configurationStore.int("shiftvps.active_policy_version").set(policy.version)
         if (!current()) return false
+        clearFirstResponse()
+        clearSpeedTest()
         selectedProfileId = selected.id
         connectionRequestId = Any()
         state.update { it.copy(selectedId = groupId, error = null, policyVersion = policy.version) }
@@ -528,6 +608,8 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
         if (state.value.serviceState.canStop) {
             serverSelectionRevision++
             connectionRequestId = null
+            clearFirstResponse()
+            clearSpeedTest()
             repository.stopService()
             return
         }
@@ -541,6 +623,8 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
             if (!connectionPreparation.tryLock()) return@launch
             val generation = sessionGeneration
             val revision = serverSelectionRevision
+            val attempt = FirstResponseAttempt(TimeSource.Monotonic.markNow())
+            if (policy.telemetry.enabled) firstResponseAttempt = attempt
             fun current() = generation == sessionGeneration && revision == serverSelectionRevision &&
                 state.value.signedIn && state.value.accessState == ShiftVpsAccessState.Active &&
                 !state.value.serviceState.started
@@ -572,7 +656,10 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
                 if (generation != sessionGeneration) return@launch
                 handleFailure(error)
                 metric("connect_failed", errorCode = diagnosticCode(error))
-            } finally { connectionPreparation.unlock() }
+            } finally {
+                if (!connectionPending && firstResponseAttempt === attempt) clearFirstResponse()
+                connectionPreparation.unlock()
+            }
         }
     }
 
@@ -587,6 +674,8 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
     private fun logoutSession(notifyServer: Boolean) {
         serverSelectionRevision++
         sessionGeneration++
+        clearFirstResponse()
+        clearSpeedTest()
         summaryJob?.cancel()
         accountCoordinator.reset()
         metricOwner = null
@@ -805,6 +894,8 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
         if (error is CancellationException) throw error
         if (error is ClientApiException && (error.status == 401 || error.code in setOf("subscription_expired", "device_deleted"))) {
             sessionGeneration++
+            clearFirstResponse()
+            clearSpeedTest()
             summaryJob?.cancel()
             accountCoordinator.reset()
             repository.stopService()
@@ -843,12 +934,17 @@ class ShiftVpsController : AutoCloseable, ShiftVpsAccountActions {
         state.update { it.copy(error = message) }
     }
 
-    private fun metric(event: String, profile: ProxyEntity? = profiles.firstOrNull { it.id == selectedProfileId }, latency: Int? = null, errorCode: String? = null) {
+    private fun metric(
+        event: String, profile: ProxyEntity? = profiles.firstOrNull { it.id == selectedProfileId },
+        latency: Int? = null, errorCode: String? = null, downloadKbps: Int? = null,
+    ) {
+        if (event == "connect_failed") recordFirstResponseFailure(errorCode ?: "unknown")
         if (!policy.telemetry.enabled || !state.value.signedIn) return
         val owner = metricOwner ?: return
         val now = System.currentTimeMillis()
         metrics.append(owner, ClientMetric(event, profile?.let(::diagnosticServerId), latency?.coerceIn(0, 60000), errorCode,
-            BuildConfig.VERSION_NAME.substringBefore('-').take(32), platform(), policy.version, occurredAt = now / 1000L), now)
+            BuildConfig.VERSION_NAME.substringBefore('-').take(32), platform(), policy.version,
+            occurredAt = now / 1000L, downloadKbps = downloadKbps), now)
     }
 
     private suspend fun flushMetrics() {

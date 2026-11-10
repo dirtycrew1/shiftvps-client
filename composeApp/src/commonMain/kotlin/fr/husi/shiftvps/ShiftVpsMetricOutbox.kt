@@ -89,7 +89,15 @@ internal class ClientMetricOutbox private constructor(
 }
 
 internal fun ClientMetric.isSafeMetric(): Boolean =
-    event in setOf("connect_succeeded", "connect_failed", "disconnected", "feed_updated", "feed_update_failed", "latency_sample", "app_error") &&
+    event in setOf("connect_succeeded", "connect_failed", "disconnected", "feed_updated", "feed_update_failed",
+        "latency_sample", "app_error", "connection_quality", "speed_sample") &&
+        when (event) {
+            "connection_quality" -> downloadKbps == null &&
+                ((latencyMs == null) != (errorCode == null)) && (latencyMs == null || serverId != null)
+            "speed_sample" -> serverId != null && latencyMs == null && errorCode == null &&
+                downloadKbps != null && downloadKbps in 1..10_000_000
+            else -> downloadKbps == null
+        } &&
         (serverId == null || serverId.matches(Regex("[a-f0-9]{64}"))) &&
         (latencyMs == null || latencyMs in 0..60000) &&
         (errorCode == null || errorCode in setOf("timeout", "dns", "tls", "network_unreachable", "authentication", "subscription_expired", "configuration", "permission", "unknown")) &&

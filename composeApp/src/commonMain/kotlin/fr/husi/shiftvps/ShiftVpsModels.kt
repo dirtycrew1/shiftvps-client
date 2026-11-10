@@ -43,6 +43,9 @@ data class ShiftVpsUiState(
     val accountDetailsLoading: Boolean = false,
     val accountDetailsError: String? = null,
     val accountAction: ShiftVpsAccountActionState = ShiftVpsAccountActionState(),
+    val speedChecking: Boolean = false,
+    val downloadKbps: Int? = null,
+    val speedFailed: Boolean = false,
 )
 
 enum class ShiftVpsAccessState { Unknown, Active, Inactive }
@@ -384,6 +387,7 @@ internal data class ClientMetric(
     val platform: String,
     @SerialName("policy_version") val policyVersion: Int,
     @SerialName("occurred_at") val occurredAt: Long? = null,
+    @SerialName("download_kbps") val downloadKbps: Int? = null,
 )
 
 internal fun rankServers(servers: List<ShiftVpsServer>): List<ShiftVpsServer> = servers.sortedWith(

@@ -46,4 +46,8 @@
     <string name="shiftvps_update_version">Версия %1$s</string>
     <string name="shiftvps_update_action">Установить</string>
     <string name="shiftvps_update_continue">Продолжить</string>
+    <string name="shiftvps_speed_test">Проверить скорость</string>
+    <string name="shiftvps_speed_checking">Измеряем скорость…</string>
+    <string name="shiftvps_speed_result">Скачивание · %1$s Мбит/с</string>
+    <string name="shiftvps_speed_failed">Не удалось измерить скорость</string>
 </resources>

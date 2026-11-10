@@ -90,6 +90,7 @@ import fr.husi.shiftvps.ShiftVpsUpdateState
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import java.text.DateFormat
+import java.text.NumberFormat
 import java.util.Date
 
 private val CardShape = RoundedCornerShape(20.dp)
@@ -120,6 +121,7 @@ internal fun ShiftVpsScreen(
     accountActions: ShiftVpsAccountActions? = null,
     initialTab: ShiftVpsTab = ShiftVpsTab.Connection,
     initialAccountSection: ShiftVpsAccountSection = ShiftVpsAccountSection.Overview,
+    onTestSpeed: () -> Unit = {},
 ) {
     var selectedTab by remember(state.signedIn) { mutableStateOf(initialTab) }
     var accountSection by remember(state.signedIn) { mutableStateOf(initialAccountSection) }
@@ -157,7 +159,7 @@ internal fun ShiftVpsScreen(
                                     selectedTab = ShiftVpsTab.Account
                                 }, onRefresh = onRefreshSummary, onDisconnect = onToggleConnection, modifier = Modifier.weight(1f))
                             } else ServerContent(state, updateState, error, onRefresh, onCheckServers, onSelectServer,
-                                onToggleConnection, onDismissError, onUpdate, Modifier.weight(1f))
+                                onToggleConnection, onDismissError, onUpdate, onTestSpeed, Modifier.weight(1f))
                             else -> ShiftVpsAccountContent(state, selectedTab, onRefreshSummary, onOpenAccount,
                                 onOpenReferral, onLogout, Modifier.weight(1f), accountSection,
                                 { accountSection = it }, accountActions, updateState, onCheckAppUpdate, onUpdate)
@@ -382,6 +384,7 @@ private fun ServerContent(
     onToggleConnection: () -> Unit,
     onDismissError: () -> Unit,
     onUpdate: () -> Unit,
+    onTestSpeed: () -> Unit,
     modifier: Modifier,
 ) {
     val selectionLocked = state.serviceState == ServiceState.Stopping
@@ -394,6 +397,19 @@ private fun ServerContent(
         }
         item {
             ConnectionCard(state, updateState.phase == ShiftVpsUpdatePhase.Installing, onToggleConnection)
+            if (state.serviceState.connected) {
+                TextButton(onTestSpeed, enabled = !state.speedChecking, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text(stringResource(if (state.speedChecking) Res.string.shiftvps_speed_checking else Res.string.shiftvps_speed_test))
+                }
+                val speedResult = state.downloadKbps?.let {
+                    val formatted = NumberFormat.getNumberInstance().apply { maximumFractionDigits = 2 }.format(it / 1000.0)
+                    stringResource(Res.string.shiftvps_speed_result, formatted)
+                } ?: if (state.speedFailed) stringResource(Res.string.shiftvps_speed_failed) else null
+                if (speedResult != null) {
+                    Text(speedResult, Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                        style = MaterialTheme.typography.bodySmall, color = ShiftVpsPalette.Muted)
+                }
+            }
             Spacer(Modifier.height(24.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween) {

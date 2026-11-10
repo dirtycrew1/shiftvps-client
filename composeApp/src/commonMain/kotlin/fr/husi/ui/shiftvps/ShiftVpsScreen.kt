@@ -139,6 +139,7 @@ fun ShiftVpsMainScreen(modifier: Modifier = Modifier) {
             onRefresh = controller::refresh,
             onCheckServers = controller::checkServers,
             onSelectServer = controller::selectServer,
+            onTestSpeed = controller::testSpeed,
             onToggleConnection = {
                 if (updateState.phase != fr.husi.shiftvps.ShiftVpsUpdatePhase.Installing || state.serviceState.canStop) {
                     controller.toggleConnection()
