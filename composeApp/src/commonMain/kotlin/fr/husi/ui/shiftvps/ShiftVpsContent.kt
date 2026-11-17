@@ -487,9 +487,10 @@ private fun ServerContent(
 
 @Composable
 private fun ConnectionCard(state: ShiftVpsUiState, installing: Boolean, onToggleConnection: () -> Unit) {
-    val connected = state.serviceState == ServiceState.Connected
-    val busy = state.serviceState == ServiceState.Connecting || state.serviceState == ServiceState.Stopping
-    val selectedServer = state.servers.firstOrNull { it.id == state.selectedId }
+    val status = if (state.preparingServerId != null) ServiceState.Connecting else state.serviceState
+    val connected = status == ServiceState.Connected
+    val busy = status == ServiceState.Connecting || state.serviceState == ServiceState.Stopping
+    val selectedServer = state.servers.firstOrNull { it.id == (state.preparingServerId ?: state.selectedId) }
     Surface(color = ShiftVpsPalette.Card, shape = CardShape,
         border = BorderStroke(1.dp, ShiftVpsPalette.Border)) {
         Column(Modifier.fillMaxWidth().padding(20.dp)) {
@@ -505,7 +506,7 @@ private fun ConnectionCard(state: ShiftVpsUiState, installing: Boolean, onToggle
                             Box(Modifier.size(6.dp).background(ShiftVpsPalette.Online, CircleShape))
                             Spacer(Modifier.width(7.dp))
                         }
-                        Text(stringResource(when (state.serviceState) {
+                        Text(stringResource(when (status) {
                             ServiceState.Connected -> Res.string.shiftvps_connected
                             ServiceState.Connecting -> Res.string.shiftvps_connecting
                             ServiceState.Stopping -> Res.string.shiftvps_disconnecting
@@ -525,14 +526,14 @@ private fun ConnectionCard(state: ShiftVpsUiState, installing: Boolean, onToggle
                 }
             }
             Spacer(Modifier.height(24.dp))
-            BrandButton(stringResource(when (state.serviceState) {
+            BrandButton(stringResource(when (status) {
                 ServiceState.Connected -> Res.string.shiftvps_disconnect
                 ServiceState.Connecting -> Res.string.shiftvps_cancel_connection
                 ServiceState.Stopping -> Res.string.shiftvps_disconnecting
                 else -> Res.string.shiftvps_connect
             }), onToggleConnection,
-                enabled = state.serviceState != ServiceState.Stopping && (state.serviceState.canStop ||
-                    (!installing && !state.loading && selectedServer != null)), busy = busy, secondary = connected,
+                enabled = state.serviceState != ServiceState.Stopping && (state.preparingServerId != null || state.serviceState.canStop ||
+                    (!installing && selectedServer != null)), busy = busy, secondary = connected,
                 leadingBolt = !connected && !busy)
         }
     }

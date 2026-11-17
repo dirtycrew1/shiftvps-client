@@ -31,6 +31,7 @@ data class ShiftVpsUiState(
     val authCode: String? = null,
     val servers: List<ShiftVpsServer> = emptyList(),
     val selectedId: Long? = null,
+    val preparingServerId: Long? = null,
     val serviceState: ServiceState = ServiceState.Idle,
     val error: String? = null,
     val policyVersion: Int = 1,

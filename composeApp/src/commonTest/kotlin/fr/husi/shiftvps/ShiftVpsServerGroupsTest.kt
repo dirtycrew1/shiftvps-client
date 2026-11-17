@@ -24,6 +24,16 @@ class ShiftVpsServerGroupsTest {
         }
     }
 
+    @Test
+    fun `single selected route starts immediately while recovery still requires a working route`() = runTest {
+        val candidates = listOf(ServerCandidate(1, "endpoint", "Direct"))
+        val cluster = ServerCluster(-1, "Country", listOf(1), directProfileIds = listOf(1))
+        assertEquals(1L, chooseConnectionProfile(cluster, candidates) { error("unexpected preflight") })
+        assertEquals(null, chooseConnectionProfile(cluster, candidates, allowUnverified = false) {
+            ServerProbeResult.Inconclusive(ServerProbeFailure.Timeout)
+        })
+    }
+
     private val endpointA = "a".repeat(64)
     private val endpointB = "b".repeat(64)
     private val endpointC = "c".repeat(64)

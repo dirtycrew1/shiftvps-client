@@ -78,6 +78,7 @@ internal suspend fun chooseConnectionProfile(
         compareBy<ServerCandidate> { if (it.profileId in cluster.directProfileIds) 0 else 1 }
             .thenBy { it.latencyMs?.takeIf { latency -> latency > 0 } ?: Int.MAX_VALUE },
     )
+    if (allowUnverified && ordered.size == 1) return ordered.single().profileId
     for (candidate in ordered) {
         if (probe(candidate) is ServerProbeResult.Success) return candidate.profileId
     }
