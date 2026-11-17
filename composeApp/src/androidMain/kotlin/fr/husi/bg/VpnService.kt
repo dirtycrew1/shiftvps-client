@@ -28,6 +28,7 @@ import fr.husi.resources.reboot_required
 import fr.husi.resources.shiftvps_android_lockdown_notice
 import fr.husi.shiftvps.androidAppRouting
 import fr.husi.shiftvps.isManagedProfileCompatible
+import fr.husi.shiftvps.installedGamingPackages
 import fr.husi.shiftvps.requiredDirectAndroidPackages
 import fr.husi.shiftvps.managedAndroidPackagesForProfile
 import fr.husi.shiftvps.managedAndroidRoutingSnapshot
@@ -216,7 +217,7 @@ class VpnService : BaseVpnService(),
         val packageName = packageName
         val proxyApps = DataStore.proxyApps.getBlocking()
         val profile = data.proxy!!.profile
-        val managedDirectApps = requiredDirectAndroidPackages + managedAndroidPackagesForProfile(
+        val managedDirectApps = requiredDirectAndroidPackages + installedGamingPackages(packageManager) + managedAndroidPackagesForProfile(
             managedAndroidRoutingSnapshot.getBlocking(), profile.id, profile.groupId,
             runBlocking { isManagedProfileCompatible(profile) },
         )

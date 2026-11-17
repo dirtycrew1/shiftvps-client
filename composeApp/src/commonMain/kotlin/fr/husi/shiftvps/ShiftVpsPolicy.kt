@@ -55,12 +55,12 @@ fun enforceManagedRouting(options: JSONMap, platform: Platform = PlatformInfo.pl
     val guard = linkedMapOf<String, Any?>("domain_suffix" to MANAGED_DIRECT_SUFFIXES, "action" to "route", "outbound" to MANAGED_DIRECT_TAG)
     val legacyGuard = guard + ("domain_suffix" to listOf("ru"))
     val sshGuard = linkedMapOf<String, Any?>("network" to listOf("tcp"), "port" to listOf(22), "action" to "route", "outbound" to MANAGED_DIRECT_TAG)
-    val extraSuffixes = when (platform) {
+    val extraSuffixes = gamingDirectSuffixes + when (platform) {
         Platform.MacOs -> vkDirectSuffixes + "push.apple.com"
         Platform.Windows -> vkDirectSuffixes + "notify.windows.com"
         else -> vkDirectSuffixes
     }
-    val desktopAppPaths = when (platform) {
+    val desktopAppPaths = gamingProcessPaths(platform) + when (platform) {
         Platform.Windows -> listOf(
             """(?i)(?:^|[\\/])Yandex[\\/]YandexBrowser[\\/]Application[\\/]browser\.exe$""",
             """(?i)(?:^|[\\/])MAX[\\/](?:max\.exe|crashpad_handler\.exe|max-service[\\/](?:max-service|crashpad_handler)\.exe)$""",
@@ -77,6 +77,7 @@ fun enforceManagedRouting(options: JSONMap, platform: Platform = PlatformInfo.pl
         add(direct + ("domain_suffix" to extraSuffixes))
         if (platform == Platform.Android) add(direct + ("domain" to fcmHosts))
         if (desktopAppPaths.isNotEmpty()) add(direct + ("process_path_regex" to desktopAppPaths))
+        if (gamingProcessNames(platform).isNotEmpty()) add(direct + ("process_name" to gamingProcessNames(platform)))
     }
     val extraRoutes = buildList<Map<String, Any?>> {
         val direct = mapOf("action" to "route", "outbound" to MANAGED_DIRECT_TAG)
@@ -90,6 +91,7 @@ fun enforceManagedRouting(options: JSONMap, platform: Platform = PlatformInfo.pl
             add(direct + mapOf("ip_cidr" to apnsNetworks, "network" to listOf("tcp"), "port" to listOf(443, 5223)))
         }
         if (desktopAppPaths.isNotEmpty()) add(direct + ("process_path_regex" to desktopAppPaths))
+        if (gamingProcessNames(platform).isNotEmpty()) add(direct + ("process_name" to gamingProcessNames(platform)))
     }
     val sniff = mapOf("action" to "sniff")
     val namedDirect = listOf("yandex.ru", "www.yandex.ru", "ya.ru").map { name ->

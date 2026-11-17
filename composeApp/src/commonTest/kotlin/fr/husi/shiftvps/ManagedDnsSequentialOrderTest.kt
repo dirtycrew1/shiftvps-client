@@ -33,7 +33,7 @@ class ManagedDnsSequentialOrderTest {
         val route = options["route"] as Map<String, Any?>
         for (rule in route["rules"] as List<Map<String, Any?>>) {
             // These fixtures do not model an attributed application or an address-set match.
-            if ("process_path_regex" in rule || "package_name" in rule || "ip_cidr" in rule) continue
+            if ("process_path_regex" in rule || "process_name" in rule || "package_name" in rule || "ip_cidr" in rule) continue
             if ((rule["network"] as? List<String>)?.contains(packet.network) == false ||
                 (rule["port"] as? List<Int>)?.contains(packet.port) == false ||
                 (rule["protocol"] as? List<String>)?.contains(protocol) == false ||

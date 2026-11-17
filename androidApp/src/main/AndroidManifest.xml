@@ -54,6 +54,10 @@
         android:required="false" />
 
     <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
         <package android:name="com.avito.android" />
         <package android:name="com.google.android.gms" />
         <package android:name="com.idamob.tinkoff.android" />
