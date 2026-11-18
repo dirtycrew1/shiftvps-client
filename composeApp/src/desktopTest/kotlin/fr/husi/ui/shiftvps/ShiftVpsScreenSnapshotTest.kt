@@ -89,6 +89,27 @@ class ShiftVpsScreenSnapshotTest {
         }
     }
     @Test
+    fun `connection preparation immediately shows the target and an enabled cancel action`() = runBlocking {
+        val connecting = getString(Res.string.shiftvps_connecting)
+        val cancel = getString(Res.string.shiftvps_cancel_connection)
+        withContext(Dispatchers.Swing) {
+            for (service in listOf(ServiceState.Stopped, ServiceState.Connected)) {
+                var cancelled = 0
+                val state = fixture().copy(serviceState = service, selectedId = -1, preparingServerId = -2, probing = true)
+                snapshot("preparing-$service", 390, 900, state, onToggleConnection = { cancelled++ }) { scene ->
+                    assertTrue(connecting in texts(scene))
+                    assertTrue(texts(scene).count { it == "Литва" } >= 2)
+                    val label = textNode(scene, cancel)
+                    val button = buttons(scene).first { it.boundsInRoot.contains(label.boundsInRoot.center) }
+                    assertFalse(SemanticsProperties.Disabled in button.config)
+                    button.config[SemanticsActions.OnClick].action!!.invoke()
+                    assertEquals(1, cancelled)
+                }
+            }
+        }
+    }
+
+    @Test
     fun `login remains a single browser sign in action`() = runBlocking {
         val signIn = getString(Res.string.shiftvps_sign_in)
         withContext(Dispatchers.Swing) {
