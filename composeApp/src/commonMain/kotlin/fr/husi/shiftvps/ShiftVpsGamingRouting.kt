@@ -8,7 +8,7 @@ internal val gamingDirectSuffixes = listOf(
     "steamserver.net", "steamgames.com", "steamusercontent.com", "valvesoftware.com",
     "dota2.com", "counter-strike.net", "playdeadlock.com",
     "epicgames.com", "epicgames.dev", "epicgamescdn.com", "fortnite.com",
-    "riotgames.com", "riotcdn.net", "riotgames.net", "pvp.net", "leagueoflegends.com", "playvalorant.com",
+    "leagueoflegends.com",
     "battle.net", "battlenet.com", "blizzard.com", "blizzard.net", "blzstatic.com", "blz-contentstack.com",
     "ea.com", "origin.com", "origin-a.akamaihd.net", "ubisoft.com", "ubi.com", "ubisoftconnect.com",
     "gog.com", "gog-statics.com", "rockstargames.com",
@@ -17,6 +17,17 @@ internal val gamingDirectSuffixes = listOf(
     "gaijin.net", "warthunder.com", "minecraft.net", "mojang.com", "piston-data.mojang.com",
     "roblox.com", "rbxcdn.com", "supercell.com", "supercell.net",
 )
+
+// VALORANT needs the tunnel, including the shared Riot login and update services.
+internal val riotTunnelSuffixes = listOf("riotgames.com", "riotcdn.net", "riotgames.net", "pvp.net", "playvalorant.com")
+
+internal fun riotTunnelProcessPaths(platform: Platform): List<String> = when (platform) {
+    Platform.Windows -> listOf(
+        """(?i)(?:^|[\\/])(?:VALORANT|Riot Client|Riot Vanguard)[\\/]""",
+        """(?i)(?:^|[\\/])(?:VALORANT\.exe|VALORANT-Win64-Shipping\.exe|RiotClientServices\.exe|RiotClientUx\.exe|RiotClientUxRender\.exe|vgc\.exe|vgtray\.exe)$""",
+    )
+    else -> emptyList()
+}
 
 internal val gamingAndroidPackages = setOf(
     "com.valvesoftware.android.steam.community", "com.valvesoftware.android.steam.friendsui",
@@ -31,8 +42,7 @@ internal fun gamingProcessNames(platform: Platform): List<String> = when (platfo
     Platform.Windows -> listOf(
         "steam.exe", "steamwebhelper.exe", "SteamService.exe", "dota2.exe", "cs2.exe", "csgo.exe",
         "EpicGamesLauncher.exe", "EpicWebHelper.exe", "FortniteClient-Win64-Shipping.exe", "RocketLeague.exe",
-        "RiotClientServices.exe", "RiotClientUx.exe", "RiotClientUxRender.exe", "LeagueClient.exe",
-        "LeagueClientUx.exe", "LeagueClientUxRender.exe", "League of Legends.exe", "VALORANT.exe", "VALORANT-Win64-Shipping.exe",
+        "LeagueClient.exe", "LeagueClientUx.exe", "LeagueClientUxRender.exe", "League of Legends.exe",
         "Battle.net.exe", "BlizzardBrowser.exe", "Overwatch.exe", "Wow.exe", "WowClassic.exe", "Diablo IV.exe",
         "EADesktop.exe", "EABackgroundService.exe", "EALauncher.exe", "Origin.exe", "r5apex.exe", "r5apex_dx12.exe",
         "UbisoftConnect.exe", "upc.exe", "UplayWebCore.exe", "RainbowSix.exe", "RainbowSix_Vulkan.exe", "RainbowSix_DX11.exe",

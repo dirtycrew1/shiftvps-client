@@ -4,12 +4,17 @@ ShiftVPS 0.1.20 routes recognized launchers, games and their dedicated service
 domains directly. Direct means the underlying Internet connection, not a
 direct Naive connection to a ShiftVPS server. The route has no proxy fallback.
 
-Windows includes Steam, Dota 2, CS2, Epic/Fortnite, Riot/Valorant/League,
+Windows includes Steam, Dota 2, CS2, Epic/Fortnite, League of Legends,
 Battle.net, EA/Apex, Ubisoft/Rainbow Six, GOG, PUBG, Rust, Tarkov, FACEIT,
 War Thunder, Wargaming/Lesta, Roblox and Minecraft. Process names cover custom
 installation locations; library paths cover other executables and future games
 inside Steam, Epic, Riot, EA, GOG, Ubisoft and Rockstar libraries. macOS and Linux
 use platform-specific process and library paths. Matching applies to TCP and UDP.
+
+Starting with 0.1.22, VALORANT, Riot Client, Riot Vanguard and shared Riot
+service domains use the selected tunnel instead. This exception precedes
+the generic game-library rules. League of Legends game traffic remains direct;
+shared Riot authentication and updates use the tunnel.
 
 Android discovers launchable apps marked CATEGORY_GAME or FLAG_IS_GAME locally
 and combines them with known game/launcher packages. VpnService excludes them

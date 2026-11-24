@@ -93,18 +93,26 @@ fun enforceManagedRouting(options: JSONMap, platform: Platform = PlatformInfo.pl
         if (desktopAppPaths.isNotEmpty()) add(direct + ("process_path_regex" to desktopAppPaths))
         if (gamingProcessNames(platform).isNotEmpty()) add(direct + ("process_name" to gamingProcessNames(platform)))
     }
+    val riotSelectors = buildList<Map<String, Any?>> {
+        add(mapOf("domain_suffix" to riotTunnelSuffixes))
+        val paths = riotTunnelProcessPaths(platform)
+        if (paths.isNotEmpty()) add(mapOf("process_path_regex" to paths))
+    }
+    val riotRoutes = (route["final"] as? String)?.takeIf { it.isNotBlank() }?.let { tag ->
+        riotSelectors.map { it + mapOf("action" to "route", "outbound" to tag) }
+    }.orEmpty()
     val sniff = mapOf("action" to "sniff")
     val namedDirect = listOf("yandex.ru", "www.yandex.ru", "ya.ru").map { name ->
         // Cached browser IPs must be resolved again on the underlying network, not dialed as fixed IPv6.
         linkedMapOf<String, Any?>("domain" to listOf(name), "action" to "route", "outbound" to MANAGED_DIRECT_TAG, "override_address" to name)
     }
-    rules.removeAll { it == sniff || it == guard || it == legacyGuard || it == sshGuard || it in namedDirect || it in extraRoutes }
+    rules.removeAll { it == sniff || it == guard || it == legacyGuard || it == sshGuard || it in namedDirect || it in extraRoutes || it in riotRoutes }
     rules.add(0, sniff)
     val firstRoutingRule = rules.indexOfFirst { item ->
         val action = (item as? Map<*, *>)?.get("action")
         action !in setOf("sniff", "hijack-dns", "route-options", "resolve")
     }.let { if (it < 0) rules.size else it }
-    rules.addAll(firstRoutingRule, namedDirect + listOf(guard, sshGuard) + extraRoutes)
+    rules.addAll(firstRoutingRule, namedDirect + listOf(guard, sshGuard) + riotRoutes + extraRoutes)
     route["rules"] = rules
     options["route"] = route
 
@@ -136,8 +144,17 @@ fun enforceManagedRouting(options: JSONMap, platform: Platform = PlatformInfo.pl
         dnsRules.add(0, linkedMapOf("inbound" to listOf("tun-in"), "domain_suffix" to MANAGED_DIRECT_SUFFIXES,
             "query_type" to listOf("A", "AAAA"), "action" to "route", "server" to it, "disable_cache" to true))
     }
-    dnsRules.removeAll { it in extraDns }
-    dnsRules.addAll(if (fakeTag == null) 1 else 2, extraDns)
+    val riotDns = (dns["final"] as? String)?.takeIf { it.isNotBlank() }?.let { tag ->
+        buildList {
+            if (fakeTag != null) for (selector in riotSelectors) {
+                add(selector + mapOf("inbound" to listOf("tun-in"), "query_type" to listOf("A", "AAAA"),
+                    "action" to "route", "server" to fakeTag, "disable_cache" to true))
+            }
+            for (selector in riotSelectors) add(selector + mapOf("action" to "route", "server" to tag))
+        }
+    }.orEmpty()
+    dnsRules.removeAll { it in extraDns || it in riotDns }
+    dnsRules.addAll(if (fakeTag == null) 1 else 2, riotDns + extraDns)
     dns["servers"] = dnsServers
     dns["rules"] = dnsRules
     dns["reverse_mapping"] = true

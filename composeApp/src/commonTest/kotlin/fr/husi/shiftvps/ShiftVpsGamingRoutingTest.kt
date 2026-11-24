@@ -9,8 +9,8 @@ import kotlin.test.assertTrue
 
 class ShiftVpsGamingRoutingTest {
     private fun options(platform: Platform): JSONMap = mutableMapOf<String, Any?>(
-        "route" to mapOf("rules" to listOf(mapOf("action" to "route", "outbound" to "proxy"))),
-        "dns" to mapOf("rules" to listOf(mapOf("server" to "dns-fake"))),
+        "route" to mapOf("rules" to listOf(mapOf("action" to "route", "outbound" to "proxy")), "final" to "proxy"),
+        "dns" to mapOf("rules" to listOf(mapOf("server" to "dns-fake")), "final" to "proxy-dns"),
     ).also { enforceManagedRouting(it, platform) }
 
     private fun rules(options: JSONMap, section: String) =
@@ -29,7 +29,7 @@ class ShiftVpsGamingRoutingTest {
                 "D:\\Library\\steamapps\\common\\dota 2 beta\\game\\bin\\win64\\dota2.exe",
                 "E:/SteamLibrary/steamapps/common/Counter-Strike Global Offensive/game/bin/win64/cs2.exe",
                 "Z:/Custom/CS2.EXE", "Z:/Custom/dota2.exe", "Z:/Custom/steam.exe",
-                "Z:/Custom/EpicGamesLauncher.exe", "D:/Riot Games/VALORANT/live/ShooterGame/Binaries/Win64/VALORANT-Win64-Shipping.exe",
+                "Z:/Custom/EpicGamesLauncher.exe", "D:/Riot Games/League of Legends/Game/League of Legends.exe",
                 "D:/Games/r5apex.exe", "D:/Games/TslGame.exe", "D:/Games/RocketLeague.exe",
                 "D:/Games/Battle.net.exe", "D:/Games/EADesktop.exe", "D:/Games/UbisoftConnect.exe",
                 "D:/Games/GalaxyClient.exe", "D:/Games/steamapps/common/New Game/unknown-game.exe",
@@ -61,8 +61,59 @@ class ShiftVpsGamingRoutingTest {
         }
         val suffixes = rules(config, "route").flatMap { (it["domain_suffix"] as? List<*>).orEmpty() }
         assertTrue("steampowered.com" in suffixes && "steamcontent.com" in suffixes)
-        assertTrue("riotgames.com" in suffixes && "epicgames.com" in suffixes)
+        assertTrue("epicgames.com" in suffixes)
         assertFalse(listOf("com", "amazonaws.com", "akamai.net", "cloudfront.net", "microsoft.com", "google.com").any { it in suffixes })
+    }
+
+    @Test
+    fun `Valorant and its shared Riot launcher take the tunnel before generic game library rules`() {
+        val config = options(Platform.Windows)
+        for (path in listOf(
+            "D:/Riot Games/VALORANT/live/ShooterGame/Binaries/Win64/VALORANT-Win64-Shipping.exe",
+            "D:/Riot Games/Riot Client/RiotClientServices.exe",
+            "C:/Games/VALORANT.EXE",
+            "E:/steamapps/common/Custom/RiotClientUxRender.exe",
+            "E:/steamapps/common/Riot Games/VALORANT/live/helper.exe",
+            "C:/Program Files/Riot Vanguard/vgc.exe",
+        )) {
+            val route = rules(config, "route").firstOrNull { matchesApp(it, path) }
+            val dns = rules(config, "dns").firstOrNull { matchesApp(it, path) }
+            assertEquals("proxy", route?.get("outbound"), path)
+            assertFalse("network" in route.orEmpty() || "port" in route.orEmpty(), path)
+            assertEquals("proxy-dns", dns?.get("server"), path)
+        }
+        for (domain in listOf("auth.riotgames.com", "cdn.riotcdn.net", "riotgames.net", "pvp.net", "playvalorant.com")) {
+            fun matchesDomain(rule: Map<*, *>): Boolean = (rule["domain_suffix"] as? List<*>)?.any {
+                domain == it || domain.endsWith(".$it")
+            } == true
+            assertEquals("proxy", rules(config, "route").firstOrNull(::matchesDomain)?.get("outbound"), domain)
+            assertEquals("proxy-dns", rules(config, "dns").firstOrNull(::matchesDomain)?.get("server"), domain)
+            assertFalse(rules(config, "route").any { it["outbound"] == MANAGED_DIRECT_TAG && matchesDomain(it) }, domain)
+        }
+    }
+
+    @Test
+    fun `Valorant TUN address queries preserve FakeIP and other DNS uses selected remote server`() {
+        val config: JSONMap = mutableMapOf(
+            "inbounds" to listOf(mapOf("type" to "tun", "tag" to "tun-in")),
+            "route" to mapOf("final" to "selected-server"),
+            "dns" to mapOf("servers" to listOf(mapOf("type" to "fakeip", "tag" to "existing-fake")),
+                "final" to "remote-dns"),
+        )
+        enforceManagedRouting(config, Platform.Windows)
+        val once = config.toString()
+        enforceManagedRouting(config, Platform.Windows)
+        assertEquals(once, config.toString())
+        val paths = listOf("C:/Games/VALORANT.EXE", "D:/steamapps/common/Riot Client/RiotClientServices.exe")
+        for (path in paths) {
+            val processRules = rules(config, "dns").filter { matchesApp(it, path) }
+            assertEquals("existing-fake", processRules.first()["server"])
+            assertEquals(listOf("A", "AAAA"), processRules.first()["query_type"])
+            assertEquals("remote-dns", processRules[1]["server"])
+            assertEquals("selected-server", rules(config, "route").first { matchesApp(it, path) }["outbound"])
+        }
+        val shared = rules(config, "dns").filter { it["domain_suffix"] == riotTunnelSuffixes }
+        assertEquals(listOf("existing-fake", "remote-dns"), shared.map { it["server"] })
     }
 
     @Test
