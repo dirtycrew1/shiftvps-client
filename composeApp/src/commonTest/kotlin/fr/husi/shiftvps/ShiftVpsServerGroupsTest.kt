@@ -89,7 +89,7 @@ class ShiftVpsServerGroupsTest {
     }
 
     @Test
-    fun `recovery requires two failed targets and a confirmed route in the current location`() = runTest {
+    fun `active path must fail across targets and recovery requires a confirmed route in the same location`() = runTest {
         val candidates = listOf(ServerCandidate(1, endpointA, "Direct"), ServerCandidate(2, endpointB, "Relay"),
             ServerCandidate(3, endpointC, "Other country"))
         val cluster = ServerCluster(-1, "Country", listOf(1, 2), directProfileIds = listOf(1))
@@ -97,23 +97,40 @@ class ShiftVpsServerGroupsTest {
         val seen = mutableListOf<String>()
         val timeout = ServerProbeResult.Inconclusive(ServerProbeFailure.Timeout)
 
-        assertEquals(null, chooseRecoveryProfile(cluster, 1, candidates, targets[0],
-            checkActive = { if (it == targets[0]) timeout else ServerProbeResult.Success(120) },
-            checkCandidate = { error("A live route should be preserved") },
-        ))
-        assertEquals(null, chooseRecoveryProfile(cluster, 1, candidates, targets[0],
-            checkActive = { ServerProbeResult.Inconclusive(ServerProbeFailure.CoreUnavailable) },
-            checkCandidate = { error("An unavailable core does not identify a route failure") },
-        ))
-        assertEquals(null, chooseRecoveryProfile(cluster, 1, candidates, targets[0],
-            checkActive = { timeout },
-            checkCandidate = { assertEquals(2L, it.profileId); timeout },
-        ))
-        assertEquals(2L, chooseRecoveryProfile(cluster, 1, candidates, targets[0],
-            checkActive = { seen += it; timeout },
-            checkCandidate = { assertEquals(2L, it.profileId); ServerProbeResult.Success(150) },
-        ))
+        assertEquals(ShiftVpsConnectionHealth.Verified, assessActivePath(targets[0]) {
+            if (it == targets[0]) timeout else ServerProbeResult.Success(120)
+        })
+        assertEquals(ShiftVpsConnectionHealth.Unknown, assessActivePath(targets[0]) {
+            ServerProbeResult.Inconclusive(ServerProbeFailure.CoreUnavailable)
+        })
+        assertEquals(ShiftVpsConnectionHealth.Unreachable, assessActivePath(targets[0]) {
+            seen += it
+            timeout
+        })
         assertEquals(targets, seen)
+        val alternatives = candidates.filter { it.profileId != 1L }
+        assertEquals(null, chooseConnectionProfile(cluster.copy(profileIds = listOf(1)), alternatives, allowUnverified = false) {
+            error("A single route must not trigger a change of country")
+        })
+        assertEquals(null, chooseConnectionProfile(cluster, alternatives, allowUnverified = false) {
+            assertEquals(2L, it.profileId)
+            timeout
+        })
+        assertEquals(2L, chooseConnectionProfile(cluster, alternatives, allowUnverified = false) {
+            assertEquals(2L, it.profileId)
+            ServerProbeResult.Success(150)
+        })
+    }
+
+    @Test
+    fun `order stays stable during a survey and updates on completion`() {
+        val first = ShiftVpsServer(1, "First", latencyMs = 90, reachable = true)
+        val second = ShiftVpsServer(2, "Second", latencyMs = 180, reachable = true)
+        val new = ShiftVpsServer(3, "New", latencyMs = 70, reachable = true)
+        val previous = listOf(first, second)
+        val updated = listOf(first.copy(latencyMs = 300), second, new)
+        assertEquals(listOf(1L, 2L, 3L), orderServerRows(updated, previous, probing = true).map { it.id })
+        assertEquals(listOf(3L, 2L, 1L), orderServerRows(updated, previous, probing = false).map { it.id })
     }
 
     @Test

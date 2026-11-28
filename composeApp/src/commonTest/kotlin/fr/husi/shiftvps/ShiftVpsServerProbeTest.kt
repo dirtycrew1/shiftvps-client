@@ -22,6 +22,20 @@ class ShiftVpsServerProbeTest {
     private val latency = ShiftVpsLatency()
 
     @Test
+    fun `recognized core errors become fixed diagnostics without private network details`() = runTest {
+        for ((detail, expected) in listOf(
+            "lookup example.test: no such host" to ServerProbeFailure.Dns,
+            "TLS handshake timeout" to ServerProbeFailure.Timeout,
+            "x509: certificate has expired" to ServerProbeFailure.Tls,
+            "instance context not available" to ServerProbeFailure.Configuration,
+        )) {
+            val core = failingCore(CoreRpcException(Status.Code.INTERNAL, detail))
+            val result = assertIs<ServerProbeResult.Inconclusive>(probeServer(core, config, latency, emptyList()))
+            assertEquals(expected, result.reason)
+        }
+    }
+
+    @Test
     fun `HTTP test explicitly uses the profile outbound and preserves successful zero latency`() = runTest {
         var calls = 0
         val core = object : FakeCoreClient() {

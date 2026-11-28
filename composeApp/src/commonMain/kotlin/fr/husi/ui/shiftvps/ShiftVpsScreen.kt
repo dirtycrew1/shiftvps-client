@@ -136,6 +136,7 @@ fun ShiftVpsMainScreen(modifier: Modifier = Modifier) {
             browserError = browserError,
             onSignIn = { browserError = false; controller.signIn() },
             onCancelLogin = { browserError = false; controller.cancelLogin() },
+            onReopenLogin = controller::reopenLogin,
             onRefresh = controller::refresh,
             onCheckServers = controller::checkServers,
             onSelectServer = controller::selectServer,

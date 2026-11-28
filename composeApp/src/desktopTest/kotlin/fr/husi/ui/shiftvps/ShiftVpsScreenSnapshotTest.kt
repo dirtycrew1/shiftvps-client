@@ -65,6 +65,55 @@ import kotlin.test.assertTrue
 class ShiftVpsScreenSnapshotTest {
     private var frameTimeNanos = 0L
     @Test
+    fun `the main screen distinguishes tunnel startup from verified internet access`() = runBlocking {
+        val verified = getString(Res.string.shiftvps_connected)
+        val checking = getString(Res.string.shiftvps_connection_verifying)
+        val failed = getString(Res.string.shiftvps_connection_unreachable)
+        val on = getString(Res.string.shiftvps_connection_on)
+        val disconnect = getString(Res.string.shiftvps_disconnect)
+        val labels = mapOf(ShiftVpsConnectionHealth.Verified to verified, ShiftVpsConnectionHealth.Checking to checking,
+            ShiftVpsConnectionHealth.Unreachable to failed, ShiftVpsConnectionHealth.Unknown to on)
+        withContext(Dispatchers.Swing) {
+            for ((health, label) in labels) {
+                var toggles = 0
+                snapshot("audit-connection-${health.name.lowercase()}", 390, 844,
+                    fixture().copy(serviceState = ServiceState.Connected, connectionHealth = health),
+                    onToggleConnection = { toggles++ }) { scene ->
+                    val visible = texts(scene)
+                    assertTrue(label in visible)
+                    assertEquals(health == ShiftVpsConnectionHealth.Verified, verified in visible)
+                    clickText(scene, disconnect)
+                    assertEquals(1, toggles)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `refresh failure keeps saved servers selectable and an empty list offers retry`() = runBlocking {
+        val saved = getString(Res.string.shiftvps_servers_cached)
+        val error = getString(Res.string.shiftvps_servers_refresh_failed)
+        val retry = getString(Res.string.shiftvps_retry)
+        withContext(Dispatchers.Swing) {
+            var selected: Long? = null
+            snapshot("audit-servers-saved", 390, 844, fixture().copy(serverRefreshFailed = true),
+                onSelectServer = { selected = it }) { scene ->
+                assertTrue(saved in texts(scene))
+                clickText(scene, "Литва")
+                assertEquals(-2L, selected)
+            }
+            var refreshed = false
+            snapshot("audit-servers-retry", 390, 844,
+                fixture().copy(servers = emptyList(), selectedId = null, serverRefreshFailed = true),
+                onRefresh = { refreshed = true }) { scene ->
+                assertTrue(error in texts(scene))
+                clickText(scene, retry)
+                assertTrue(refreshed)
+            }
+        }
+    }
+
+    @Test
     fun `server rows accept one tap while connected or stopped without pressing the connection button`() = runBlocking {
         withContext(Dispatchers.Swing) {
             for (service in listOf(ServiceState.Stopped, ServiceState.Connected, ServiceState.Stopping)) {
@@ -123,15 +172,20 @@ class ShiftVpsScreenSnapshotTest {
     }
 
     @Test
-    fun `browser confirmation keeps the comparison code and one cancel action`() = runBlocking {
+    fun `browser confirmation reopens the same request or cancels without losing the visible code`() = runBlocking {
         val title = getString(Res.string.shiftvps_sign_in_waiting)
         val comparison = getString(Res.string.shiftvps_sign_in_code)
         val cancel = getString(Res.string.shiftvps_cancel)
+        val browser = getString(Res.string.shiftvps_open_login_browser)
         withContext(Dispatchers.Swing) {
             authSizes.forEach { (device, width, height) ->
-                snapshot("login-pending-$device", width, height, ShiftVpsUiState(authCode = "ABCD-EFGH")) { scene ->
-                    assertTrue(texts(scene).containsAll(listOf(title, comparison, "ABCD-EFGH", cancel)))
-                    assertEquals(1, buttons(scene).count())
+                var opens = 0
+                snapshot("login-pending-$device", width, height, ShiftVpsUiState(authCode = "ABCD-EFGH"),
+                    onReopenLogin = { opens++ }) { scene ->
+                    assertTrue(texts(scene).containsAll(listOf(title, comparison, "ABCD-EFGH", browser, cancel)))
+                    clickText(scene, browser)
+                    assertEquals(1, opens)
+                    assertEquals(2, buttons(scene).count())
                 }
             }
         }
@@ -989,6 +1043,8 @@ class ShiftVpsScreenSnapshotTest {
         updateState: ShiftVpsUpdateState = ShiftVpsUpdateState(),
         browserError: Boolean = false,
         clipboard: Clipboard = MemoryClipboard(),
+        onRefresh: () -> Unit = {},
+        onReopenLogin: () -> Unit = {},
         onToggleConnection: () -> Unit = {},
         onSelectServer: (Long) -> Unit = {},
         onCheckAppUpdate: () -> Unit = {},
@@ -1007,8 +1063,9 @@ class ShiftVpsScreenSnapshotTest {
                             state = state,
                             modifier = Modifier.weight(1f),
                             onSignIn = {},
+                            onReopenLogin = onReopenLogin,
                             onCancelLogin = {},
-                            onRefresh = {},
+                            onRefresh = onRefresh,
                             onCheckServers = {},
                             onSelectServer = onSelectServer,
                             onToggleConnection = onToggleConnection,

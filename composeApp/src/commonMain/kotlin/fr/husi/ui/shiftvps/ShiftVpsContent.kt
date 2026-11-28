@@ -84,6 +84,7 @@ import fr.husi.resources.*
 import fr.husi.shiftvps.ShiftVpsServer
 import fr.husi.shiftvps.ShiftVpsAccountActions
 import fr.husi.shiftvps.ShiftVpsAccessState
+import fr.husi.shiftvps.ShiftVpsConnectionHealth
 import fr.husi.shiftvps.ShiftVpsUiState
 import fr.husi.shiftvps.ShiftVpsUpdatePhase
 import fr.husi.shiftvps.ShiftVpsUpdateState
@@ -122,6 +123,7 @@ internal fun ShiftVpsScreen(
     initialTab: ShiftVpsTab = ShiftVpsTab.Connection,
     initialAccountSection: ShiftVpsAccountSection = ShiftVpsAccountSection.Overview,
     onTestSpeed: () -> Unit = {},
+    onReopenLogin: () -> Unit = {},
 ) {
     var selectedTab by remember(state.signedIn) { mutableStateOf(initialTab) }
     var accountSection by remember(state.signedIn) { mutableStateOf(initialAccountSection) }
@@ -157,7 +159,7 @@ internal fun ShiftVpsScreen(
                                 InactiveAccessContent(state, onChoosePlan = {
                                     accountSection = ShiftVpsAccountSection.Subscription
                                     selectedTab = ShiftVpsTab.Account
-                                }, onRefresh = onRefreshSummary, onDisconnect = onToggleConnection, modifier = Modifier.weight(1f))
+                                }, onRefresh = onRefresh, onDisconnect = onToggleConnection, modifier = Modifier.weight(1f))
                             } else ServerContent(state, updateState, error, onRefresh, onCheckServers, onSelectServer,
                                 onToggleConnection, onDismissError, onUpdate, onTestSpeed, Modifier.weight(1f))
                             else -> ShiftVpsAccountContent(state, selectedTab, onRefreshSummary, onOpenAccount,
@@ -171,7 +173,7 @@ internal fun ShiftVpsScreen(
                             Modifier.padding(top = 8.dp, bottom = 12.dp))
                     } else {
                         SignInContent(state, updateState, error, onSignIn, onCancelLogin,
-                            onUpdate, onOpenPayment, Modifier.weight(1f))
+                            onUpdate, onOpenPayment, onReopenLogin, Modifier.weight(1f))
                     }
                 }
             }
@@ -193,10 +195,26 @@ private fun InactiveAccessContent(state: ShiftVpsUiState, onChoosePlan: () -> Un
                     val inactive = state.accessState == ShiftVpsAccessState.Inactive
                     Text(stringResource(if (inactive) Res.string.shiftvps_account_inactive else Res.string.shiftvps_account_access_status),
                         style = MaterialTheme.typography.headlineSmall)
-                    Text(stringResource(if (inactive) Res.string.shiftvps_account_inactive_hint else Res.string.shiftvps_account_refresh_access), style = MaterialTheme.typography.bodyLarge,
-                        color = ShiftVpsPalette.Muted, modifier = Modifier.padding(top = 10.dp, bottom = 24.dp))
-                    BrandButton(stringResource(if (inactive) Res.string.shiftvps_account_choose_plan else Res.string.shiftvps_refresh),
-                        if (inactive) onChoosePlan else onRefresh, enabled = !state.loading, busy = state.loading)
+                    val busy = state.loading || state.refreshing
+                    val hint = when {
+                        inactive -> Res.string.shiftvps_account_inactive_hint
+                        state.serverRefreshFailed -> Res.string.shiftvps_access_refresh_failed
+                        else -> Res.string.shiftvps_account_refresh_access
+                    }
+                    Text(stringResource(hint), style = MaterialTheme.typography.bodyLarge,
+                        color = ShiftVpsPalette.Muted, modifier = Modifier.padding(top = 10.dp, bottom = 20.dp)
+                            .semantics { liveRegion = LiveRegionMode.Polite })
+                    val action = when {
+                        inactive -> Res.string.shiftvps_account_choose_plan
+                        state.serverRefreshFailed -> Res.string.shiftvps_retry
+                        else -> Res.string.shiftvps_refresh
+                    }
+                    BrandButton(stringResource(action), if (inactive) onChoosePlan else onRefresh, enabled = !busy, busy = busy)
+                    if (inactive) {
+                        TextButton(onRefresh, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) {
+                            Text(stringResource(Res.string.shiftvps_access_check_payment))
+                        }
+                    }
                 }
             }
         }
@@ -309,6 +327,7 @@ private fun SignInContent(
     onCancel: () -> Unit,
     onUpdate: () -> Unit,
     onOpenPayment: () -> Unit,
+    onReopenLogin: () -> Unit,
     modifier: Modifier,
 ) {
     val waiting = state.authCode != null && error == null
@@ -351,7 +370,10 @@ private fun SignInContent(
                                 Spacer(Modifier.width(12.dp))
                                 CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = ShiftVpsPalette.Accent)
                             }
-                            BrandButton(stringResource(Res.string.shiftvps_cancel), onCancel, secondary = true)
+                            BrandButton(stringResource(Res.string.shiftvps_open_login_browser), onReopenLogin)
+                            TextButton(onCancel, modifier = Modifier.heightIn(min = 48.dp)) {
+                                Text(stringResource(Res.string.shiftvps_cancel))
+                            }
                         }
                         else -> {
                             Spacer(Modifier.height(28.dp))
@@ -389,6 +411,10 @@ private fun ServerContent(
 ) {
     val selectionLocked = state.serviceState == ServiceState.Stopping
     LazyColumn(modifier.fillMaxWidth().selectableGroup(), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+        item {
+            ConnectionCard(state, updateState.phase == ShiftVpsUpdatePhase.Installing, onToggleConnection)
+            Spacer(Modifier.height(16.dp))
+        }
         if (updateState.phase != ShiftVpsUpdatePhase.Idle) {
             item { UpdateBanner(updateState, onUpdate); Spacer(Modifier.height(14.dp)) }
         }
@@ -396,24 +422,10 @@ private fun ServerContent(
             item { ErrorMessage(error, onDismissError); Spacer(Modifier.height(14.dp)) }
         }
         item {
-            ConnectionCard(state, updateState.phase == ShiftVpsUpdatePhase.Installing, onToggleConnection)
-            if (state.serviceState.connected) {
-                TextButton(onTestSpeed, enabled = !state.speedChecking, modifier = Modifier.heightIn(min = 48.dp)) {
-                    Text(stringResource(if (state.speedChecking) Res.string.shiftvps_speed_checking else Res.string.shiftvps_speed_test))
-                }
-                val speedResult = state.downloadKbps?.let {
-                    val formatted = NumberFormat.getNumberInstance().apply { maximumFractionDigits = 2 }.format(it / 1000.0)
-                    stringResource(Res.string.shiftvps_speed_result, formatted)
-                } ?: if (state.speedFailed) stringResource(Res.string.shiftvps_speed_failed) else null
-                if (speedResult != null) {
-                    Text(speedResult, Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                        style = MaterialTheme.typography.bodySmall, color = ShiftVpsPalette.Muted)
-                }
-            }
-            Spacer(Modifier.height(24.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(stringResource(Res.string.shiftvps_server_list), style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(Res.string.shiftvps_server_list), style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp))
                 TextButton(onRefresh, enabled = !state.loading && !state.refreshing && !state.probing,
                     modifier = Modifier.heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp)) {
                     Text(stringResource(Res.string.shiftvps_refresh), style = MaterialTheme.typography.labelMedium)
@@ -422,10 +434,12 @@ private fun ServerContent(
             val notice = when {
                 state.refreshing -> Res.string.shiftvps_refreshing
                 state.probing -> Res.string.shiftvps_checking_servers
+                state.serverRefreshFailed && state.servers.isNotEmpty() -> Res.string.shiftvps_servers_cached
                 else -> null
             }
             if (notice != null) {
-                Text(stringResource(notice), style = MaterialTheme.typography.bodySmall, color = ShiftVpsPalette.Muted)
+                Text(stringResource(notice), style = MaterialTheme.typography.bodySmall, color = ShiftVpsPalette.Muted,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             }
             Spacer(Modifier.height(14.dp))
             if (state.refreshing || state.probing) {
@@ -453,9 +467,11 @@ private fun ServerContent(
                 Surface(color = ShiftVpsPalette.Card, shape = CardShape,
                     border = BorderStroke(1.dp, ShiftVpsPalette.Border)) {
                     Column(Modifier.fillMaxWidth().padding(22.dp)) {
-                        Text(stringResource(Res.string.shiftvps_no_servers), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(if (state.serverRefreshFailed) Res.string.shiftvps_servers_refresh_failed
+                            else Res.string.shiftvps_no_servers), style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(8.dp))
-                        Text(stringResource(Res.string.shiftvps_no_servers_description), style = MaterialTheme.typography.bodyMedium,
+                        Text(stringResource(if (state.serverRefreshFailed) Res.string.shiftvps_access_refresh_failed
+                            else Res.string.shiftvps_no_servers_description), style = MaterialTheme.typography.bodyMedium,
                             color = ShiftVpsPalette.Muted)
                         TextButton(onRefresh, enabled = !state.refreshing, modifier = Modifier.heightIn(min = 48.dp)) {
                             Text(stringResource(Res.string.shiftvps_retry))
@@ -474,11 +490,24 @@ private fun ServerContent(
                 horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(state.lastUpdatedMillis?.let {
                     stringResource(Res.string.shiftvps_updated_at, DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it)))
-                } ?: stringResource(Res.string.shiftvps_auto_check), style = MaterialTheme.typography.bodySmall,
+                }.orEmpty(), style = MaterialTheme.typography.bodySmall,
                     color = ShiftVpsPalette.Muted, modifier = Modifier.weight(1f).padding(end = 8.dp))
                 TextButton(onCheckServers, enabled = !state.probing && !state.refreshing && !state.loading && state.servers.isNotEmpty(),
                     modifier = Modifier.heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp)) {
                     Text(stringResource(Res.string.shiftvps_check_servers), style = MaterialTheme.typography.labelMedium)
+                }
+            }
+            if (state.serviceState.connected) {
+                TextButton(onTestSpeed, enabled = !state.speedChecking, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text(stringResource(if (state.speedChecking) Res.string.shiftvps_speed_checking else Res.string.shiftvps_speed_test))
+                }
+                val speedResult = state.downloadKbps?.let {
+                    val formatted = NumberFormat.getNumberInstance().apply { maximumFractionDigits = 2 }.format(it / 1000.0)
+                    stringResource(Res.string.shiftvps_speed_result, formatted)
+                } ?: if (state.speedFailed) stringResource(Res.string.shiftvps_speed_failed) else null
+                if (speedResult != null) {
+                    Text(speedResult, Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                        style = MaterialTheme.typography.bodySmall, color = ShiftVpsPalette.Muted)
                 }
             }
         }
@@ -489,6 +518,7 @@ private fun ServerContent(
 private fun ConnectionCard(state: ShiftVpsUiState, installing: Boolean, onToggleConnection: () -> Unit) {
     val status = if (state.preparingServerId != null) ServiceState.Connecting else state.serviceState
     val connected = status == ServiceState.Connected
+    val health = if (connected) state.connectionHealth else ShiftVpsConnectionHealth.Unknown
     val busy = status == ServiceState.Connecting || state.serviceState == ServiceState.Stopping
     val selectedServer = state.servers.firstOrNull { it.id == (state.preparingServerId ?: state.selectedId) }
     Surface(color = ShiftVpsPalette.Card, shape = CardShape,
@@ -502,12 +532,17 @@ private fun ConnectionCard(state: ShiftVpsUiState, installing: Boolean, onToggle
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (connected) {
+                        if (health == ShiftVpsConnectionHealth.Verified) {
                             Box(Modifier.size(6.dp).background(ShiftVpsPalette.Online, CircleShape))
                             Spacer(Modifier.width(7.dp))
                         }
                         Text(stringResource(when (status) {
-                            ServiceState.Connected -> Res.string.shiftvps_connected
+                            ServiceState.Connected -> when (health) {
+                                ShiftVpsConnectionHealth.Verified -> Res.string.shiftvps_connected
+                                ShiftVpsConnectionHealth.Checking -> Res.string.shiftvps_connection_verifying
+                                ShiftVpsConnectionHealth.Unreachable -> Res.string.shiftvps_connection_unreachable
+                                ShiftVpsConnectionHealth.Unknown -> Res.string.shiftvps_connection_on
+                            }
                             ServiceState.Connecting -> Res.string.shiftvps_connecting
                             ServiceState.Stopping -> Res.string.shiftvps_disconnecting
                             else -> Res.string.shiftvps_disconnected
@@ -524,6 +559,11 @@ private fun ConnectionCard(state: ShiftVpsUiState, installing: Boolean, onToggle
                             maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
+            }
+            if (health == ShiftVpsConnectionHealth.Unreachable) {
+                Text(stringResource(Res.string.shiftvps_connection_unreachable_hint),
+                    style = MaterialTheme.typography.bodyMedium, color = ShiftVpsPalette.Error,
+                    modifier = Modifier.padding(top = 14.dp))
             }
             Spacer(Modifier.height(24.dp))
             BrandButton(stringResource(when (status) {
@@ -588,7 +628,7 @@ private fun ServerRow(server: ShiftVpsServer, selected: Boolean, enabled: Boolea
         bottomStart = if (last) 16.dp else 0.dp, bottomEnd = if (last) 16.dp else 0.dp)
     Column(Modifier.fillMaxWidth().background(if (selected) ShiftVpsPalette.Selected else ShiftVpsPalette.Card, shape)
         .clip(shape).selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onSelect)) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 76.dp).padding(horizontal = 14.dp, vertical = 12.dp),
+        Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically) {
             RadioButton(selected, onClick = null, enabled = enabled,
                 colors = RadioButtonDefaults.colors(selectedColor = ShiftVpsPalette.Accent,
@@ -615,10 +655,6 @@ private fun ServerRow(server: ShiftVpsServer, selected: Boolean, enabled: Boolea
                 }, style = MaterialTheme.typography.labelMedium,
                     color = if (server.reachable == false) ShiftVpsPalette.Muted else ShiftVpsPalette.Text,
                     textAlign = TextAlign.End, maxLines = 1)
-                if (server.latencyMs != null && server.reachable != false && !server.checking) {
-                    Text(stringResource(Res.string.shiftvps_latency_label), style = MaterialTheme.typography.bodySmall,
-                        color = ShiftVpsPalette.Muted, modifier = Modifier.padding(top = 2.dp))
-                }
             }
         }
         if (!last) HorizontalDivider(color = ShiftVpsPalette.Border, modifier = Modifier.padding(start = 14.dp, end = 14.dp))

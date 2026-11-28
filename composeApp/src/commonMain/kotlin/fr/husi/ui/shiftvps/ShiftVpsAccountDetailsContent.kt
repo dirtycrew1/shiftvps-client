@@ -122,7 +122,9 @@ internal fun ShiftVpsAccountDetailsContent(state: ShiftVpsUiState, section: Shif
             if (state.accountDetailsLoading || state.accountAction.busy) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 16.dp),
                 color = ShiftVpsPalette.Accent, trackColor = ShiftVpsPalette.Border)
         }
-        state.accountDetailsError?.let { error -> item { AccountNotice(error, error = true) } }
+        if (state.accountDetailsError != null && section != ShiftVpsAccountSection.Support) {
+            item { AccountNotice(stringResource(Res.string.shiftvps_account_unavailable), error = true) }
+        }
         if (state.accountAction.phase == ShiftVpsAccountActionPhase.Error) {
             item {
                 AccountNotice(stringResource(when (state.accountAction.errorCode) {
@@ -145,9 +147,13 @@ internal fun ShiftVpsAccountDetailsContent(state: ShiftVpsUiState, section: Shif
                 }
             }
         }
-        if (state.accountDetails == null) {
+        if (section == ShiftVpsAccountSection.Support) {
+            item { SupportContent(state.accountDetails, actions) }
+        } else if (state.accountDetails == null) {
             if (!state.accountDetailsLoading) item {
-                Text(stringResource(Res.string.shiftvps_account_unavailable), color = ShiftVpsPalette.Muted)
+                if (state.accountDetailsError == null) {
+                    Text(stringResource(Res.string.shiftvps_account_unavailable), color = ShiftVpsPalette.Muted)
+                }
                 TextButton({ actions?.refreshAccountDetails() }, modifier = Modifier.heightIn(min = 48.dp)) {
                     Text(stringResource(Res.string.shiftvps_retry))
                 }
@@ -164,7 +170,6 @@ internal fun ShiftVpsAccountDetailsContent(state: ShiftVpsUiState, section: Shif
                     ShiftVpsAccountSection.Security -> if (details.capabilities.changePassword) {
                         PasswordContent(state.accountAction.phase != ShiftVpsAccountActionPhase.Uncertain, state.accountAction.busy, actions)
                     } else TelegramSignInContent(details, actions)
-                    ShiftVpsAccountSection.Support -> SupportContent(details, actions)
                     ShiftVpsAccountSection.Legacy -> LegacyContent(details, state.accountAction, actions)
                     else -> Unit
                 }
@@ -395,28 +400,32 @@ private fun PasswordField(value: String, onChange: (String) -> Unit, label: Stri
 }
 
 @Composable
-private fun SupportContent(details: ShiftVpsFullAccount, actions: ShiftVpsAccountActions?) {
+private fun SupportContent(details: ShiftVpsFullAccount?, actions: ShiftVpsAccountActions?) {
     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         AccountPanel {
-            if (!details.support.telegramUrl.isNullOrBlank()) {
+            if (!details?.support?.telegramUrl.isNullOrBlank()) {
                 AccountDestination(stringResource(Res.string.shiftvps_account_telegram)) { actions?.openAccountLink(ShiftVpsAccountLink.SupportTelegram) }
                 MenuDivider()
             }
-            AccountDestination(stringResource(Res.string.shiftvps_account_email), details.support.email) { actions?.openAccountLink(ShiftVpsAccountLink.SupportEmail) }
+            AccountDestination(stringResource(Res.string.shiftvps_account_email), details?.support?.email ?: SHIFT_VPS_SUPPORT_EMAIL) {
+                actions?.openAccountLink(ShiftVpsAccountLink.SupportEmail)
+            }
             MenuDivider()
             AccountDestination(stringResource(Res.string.shiftvps_account_privacy)) { actions?.openAccountLink(ShiftVpsAccountLink.Privacy) }
             MenuDivider()
             AccountDestination(stringResource(Res.string.shiftvps_account_terms)) { actions?.openAccountLink(ShiftVpsAccountLink.Terms) }
         }
-        Text(stringResource(Res.string.shiftvps_account_downloads), style = MaterialTheme.typography.titleMedium)
-        AccountPanel {
-            AccountDestination("Windows") { actions?.openAccountLink(ShiftVpsAccountLink.Windows) }
-            MenuDivider()
-            AccountDestination("Android") { actions?.openAccountLink(ShiftVpsAccountLink.Android) }
-            MenuDivider()
-            AccountDestination("macOS · Apple Silicon") { actions?.openAccountLink(ShiftVpsAccountLink.MacArm64) }
-            MenuDivider()
-            AccountDestination("macOS · Intel") { actions?.openAccountLink(ShiftVpsAccountLink.MacAmd64) }
+        if (details != null) {
+            Text(stringResource(Res.string.shiftvps_account_downloads), style = MaterialTheme.typography.titleMedium)
+            AccountPanel {
+                AccountDestination("Windows") { actions?.openAccountLink(ShiftVpsAccountLink.Windows) }
+                MenuDivider()
+                AccountDestination("Android") { actions?.openAccountLink(ShiftVpsAccountLink.Android) }
+                MenuDivider()
+                AccountDestination("macOS · Apple Silicon") { actions?.openAccountLink(ShiftVpsAccountLink.MacArm64) }
+                MenuDivider()
+                AccountDestination("macOS · Intel") { actions?.openAccountLink(ShiftVpsAccountLink.MacAmd64) }
+            }
         }
     }
 }

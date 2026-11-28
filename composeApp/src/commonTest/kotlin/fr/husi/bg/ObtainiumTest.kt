@@ -13,7 +13,7 @@ import kotlin.test.assertTrue
 class ObtainiumTest {
 
     private companion object {
-        const val PACKAGE_NAME = "fr.husi"
+        const val PACKAGE_NAME = "ru.shiftvps.client"
     }
 
     private fun parseLink(link: String): Pair<JsonObject, JsonObject> {
@@ -30,13 +30,13 @@ class ObtainiumTest {
     fun `link carries every field Obtainium requires to import an app`() {
         val (app, _) = parseLink(obtainiumAddAppLink(PACKAGE_NAME, false))
 
-        assertEquals("fr.husi", app.getValue("id").jsonPrimitive.content)
+        assertEquals("ru.shiftvps.client", app.getValue("id").jsonPrimitive.content)
         assertEquals(
-            "https://github.com/xchacha20-poly1305/husi",
+            "https://github.com/dirtycrew1/shiftvps-client",
             app.getValue("url").jsonPrimitive.content,
         )
-        assertEquals("xchacha20-poly1305", app.getValue("author").jsonPrimitive.content)
-        assertEquals("husi", app.getValue("name").jsonPrimitive.content)
+        assertEquals("dirtycrew1", app.getValue("author").jsonPrimitive.content)
+        assertEquals("shiftvps-client", app.getValue("name").jsonPrimitive.content)
         assertEquals(0, app.getValue("preferredApkIndex").jsonPrimitive.int)
     }
 

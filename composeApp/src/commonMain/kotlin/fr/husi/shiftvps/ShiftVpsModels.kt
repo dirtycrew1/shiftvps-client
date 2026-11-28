@@ -4,6 +4,8 @@ import fr.husi.bg.ServiceState
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+internal const val SHIFT_VPS_SUPPORT_EMAIL = "support@shiftvps.ru"
+
 interface ShiftVpsTokenStore {
     suspend fun load(): String?
     suspend fun save(token: String)
@@ -33,7 +35,9 @@ data class ShiftVpsUiState(
     val selectedId: Long? = null,
     val preparingServerId: Long? = null,
     val serviceState: ServiceState = ServiceState.Idle,
+    val connectionHealth: ShiftVpsConnectionHealth = ShiftVpsConnectionHealth.Unknown,
     val error: String? = null,
+    val serverRefreshFailed: Boolean = false,
     val policyVersion: Int = 1,
     val lastUpdatedMillis: Long? = null,
     val summary: ShiftVpsAccountSummary? = null,
@@ -50,6 +54,8 @@ data class ShiftVpsUiState(
 )
 
 enum class ShiftVpsAccessState { Unknown, Active, Inactive }
+
+enum class ShiftVpsConnectionHealth { Unknown, Checking, Verified, Unreachable }
 
 enum class ShiftVpsAccountActionKind {
     AddDevice, RenameDevice, DeleteDevice, ChangePassword, UnlinkTelegram, Checkout, LegacyPayout, Reconcile,

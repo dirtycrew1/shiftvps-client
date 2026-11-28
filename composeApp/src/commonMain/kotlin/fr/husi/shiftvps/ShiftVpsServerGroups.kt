@@ -86,22 +86,30 @@ internal suspend fun chooseConnectionProfile(
     return if (allowUnverified) ordered.firstOrNull()?.profileId else null
 }
 
-internal suspend fun chooseRecoveryProfile(
-    cluster: ServerCluster,
-    activeId: Long,
-    candidates: List<ServerCandidate>,
+internal suspend fun assessActivePath(
     primaryTestUrl: String,
     checkActive: suspend (String) -> ServerProbeResult,
-    checkCandidate: suspend (ServerCandidate) -> ServerProbeResult,
-): Long? {
-    val alternatives = candidates.filter { it.profileId != activeId && it.profileId in cluster.profileIds }
-    if (alternatives.isEmpty()) return null
+): ShiftVpsConnectionHealth {
     val urls = listOf(primaryTestUrl) + ShiftVpsPolicy.ALLOWED_PROBE_URLS.filter { it != primaryTestUrl }
     for (url in urls) {
-        val failure = (checkActive(url) as? ServerProbeResult.Inconclusive)?.reason ?: return null
-        if (failure !in setOf(ServerProbeFailure.Timeout, ServerProbeFailure.Dns, ServerProbeFailure.Tls, ServerProbeFailure.Unknown)) return null
+        when (val result = checkActive(url)) {
+            is ServerProbeResult.Success -> return ShiftVpsConnectionHealth.Verified
+            is ServerProbeResult.Inconclusive -> if (result.reason !in setOf(
+                ServerProbeFailure.Timeout, ServerProbeFailure.Dns, ServerProbeFailure.Tls, ServerProbeFailure.Unknown,
+            )) return ShiftVpsConnectionHealth.Unknown
+        }
     }
-    return chooseConnectionProfile(cluster, alternatives, allowUnverified = false, probe = checkCandidate)
+    return ShiftVpsConnectionHealth.Unreachable
+}
+
+internal fun orderServerRows(
+    servers: List<ShiftVpsServer>,
+    previous: List<ShiftVpsServer>,
+    probing: Boolean,
+): List<ShiftVpsServer> {
+    if (!probing) return rankServers(servers)
+    val positions = previous.mapIndexed { index, server -> server.id to index }.toMap()
+    return servers.sortedBy { positions[it.id] ?: Int.MAX_VALUE }
 }
 
 internal fun clusterRow(

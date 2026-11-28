@@ -79,7 +79,7 @@ private suspend fun measureServer(measure: suspend () -> Int): ServerProbeResult
             Status.Code.DEADLINE_EXCEEDED -> ServerProbeFailure.Timeout
             Status.Code.INVALID_ARGUMENT, Status.Code.NOT_FOUND, Status.Code.FAILED_PRECONDITION -> ServerProbeFailure.Configuration
             Status.Code.PERMISSION_DENIED -> ServerProbeFailure.Permission
-            else -> ServerProbeFailure.Unknown
+            else -> classifyProbeDetail(error.message.orEmpty())
         }
         is SocketTimeoutException -> ServerProbeFailure.Timeout
         is UnknownHostException -> ServerProbeFailure.Dns
@@ -88,4 +88,15 @@ private suspend fun measureServer(measure: suspend () -> Int): ServerProbeResult
         else -> ServerProbeFailure.Unknown
     }
     ServerProbeResult.Inconclusive(reason)
+}
+
+private fun classifyProbeDetail(message: String): ServerProbeFailure {
+    val detail = message.lowercase()
+    return when {
+        "no such host" in detail || "dns:" in detail -> ServerProbeFailure.Dns
+        "x509:" in detail || "tls handshake" in detail && "timeout" !in detail -> ServerProbeFailure.Tls
+        "timeout" in detail || "deadline exceeded" in detail -> ServerProbeFailure.Timeout
+        "instance context not available" in detail || "outbound manager not available" in detail -> ServerProbeFailure.Configuration
+        else -> ServerProbeFailure.Unknown
+    }
 }

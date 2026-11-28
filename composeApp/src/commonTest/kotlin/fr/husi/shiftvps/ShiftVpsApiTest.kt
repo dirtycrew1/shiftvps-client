@@ -10,6 +10,7 @@ import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.UnknownHostException
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -364,6 +365,17 @@ class ShiftVpsApiTest {
             requireActiveAccount(ShiftVpsAccount(accessActive = true, subscriptionExpiresAt = "not-a-date"))
         }
         requireActiveAccount(ShiftVpsAccount(accessActive = true, subscriptionExpiresAt = null))
+    }
+
+    @Test
+    fun `only recent unexpired account verification restores the connection screen`() {
+        val now = Instant.parse("2026-11-28T12:00:00Z").toEpochMilli()
+        val account = ShiftVpsAccount(accessActive = true, subscriptionExpiresAt = "2026-11-28T12:01:00Z")
+        assertEquals(ShiftVpsAccessState.Active, cachedAccessState(account, now - 500L, now))
+        assertEquals(ShiftVpsAccessState.Unknown, cachedAccessState(account, now - 86_400_001L, now))
+        assertEquals(ShiftVpsAccessState.Unknown, cachedAccessState(account, now + 1L, now))
+        assertEquals(ShiftVpsAccessState.Unknown, cachedAccessState(account.copy(accessActive = false), now, now))
+        assertEquals(ShiftVpsAccessState.Unknown, cachedAccessState(account.copy(subscriptionExpiresAt = "2026-11-28T12:00:00Z"), now, now))
     }
 
     @Test

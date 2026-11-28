@@ -1,5 +1,8 @@
 package fr.husi
 
+import org.junit.jupiter.api.condition.DisabledOnOs
+import org.junit.jupiter.api.condition.OS
+
 import java.io.File
 import kotlin.io.path.createTempDirectory
 import kotlin.test.AfterTest
@@ -39,6 +42,7 @@ class DesktopLauncherTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     fun `non executable entry is not a launcher`() {
         writeInstalledBinDir("fr.husi")
         binDir.resolve("fr.husi").setExecutable(false)

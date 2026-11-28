@@ -18,7 +18,7 @@ class DesktopPathsTest {
         )
 
         assertEquals(File("/config"), paths.configHomeDir)
-        assertEquals(File("/config/husi"), paths.dataDir)
+        assertEquals(File("/config/shiftvps"), paths.dataDir)
         assertEquals(File("/config/autostart"), paths.linuxAutostartDir)
         assertEquals(File("/config/systemd/user"), paths.linuxSystemdUserDir)
     }
@@ -36,7 +36,7 @@ class DesktopPathsTest {
 
         assertEquals(File("/home/alice"), paths.userHomeDir)
         assertEquals(File("/home/alice/.config"), paths.configHomeDir)
-        assertEquals(File("/home/alice/.config/husi"), paths.dataDir)
+        assertEquals(File("/home/alice/.config/shiftvps"), paths.dataDir)
     }
 
     @Test
@@ -49,7 +49,7 @@ class DesktopPathsTest {
 
         assertEquals(File("/Users/alice"), paths.userHomeDir)
         assertEquals(File("/Users/alice/Library/Application Support"), paths.configHomeDir)
-        assertEquals(File("/Users/alice/Library/Application Support/husi"), paths.dataDir)
+        assertEquals(File("/Users/alice/Library/Application Support/shiftvps"), paths.dataDir)
         assertEquals(File("/Users/alice/Library/LaunchAgents"), paths.macLaunchAgentsDir)
     }
 
@@ -66,7 +66,7 @@ class DesktopPathsTest {
 
         assertEquals(File("C:/Users/Alice"), paths.userHomeDir)
         assertEquals(File("C:/Users/Alice/AppData/Roaming"), paths.configHomeDir)
-        assertEquals(File("C:/Users/Alice/AppData/Roaming/husi"), paths.dataDir)
+        assertEquals(File("C:/Users/Alice/AppData/Roaming/shiftvps"), paths.dataDir)
     }
 
     @Test
@@ -79,6 +79,6 @@ class DesktopPathsTest {
 
         assertEquals(File("C:/Users/Alice"), paths.userHomeDir)
         assertEquals(File("C:/Users/Alice/AppData/Roaming"), paths.configHomeDir)
-        assertEquals(File("C:/Users/Alice/AppData/Roaming/husi"), paths.dataDir)
+        assertEquals(File("C:/Users/Alice/AppData/Roaming/shiftvps"), paths.dataDir)
     }
 }

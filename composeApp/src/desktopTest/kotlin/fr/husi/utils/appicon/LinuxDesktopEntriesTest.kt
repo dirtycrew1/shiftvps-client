@@ -1,5 +1,8 @@
 package fr.husi.utils.appicon
 
+import org.junit.jupiter.api.condition.DisabledOnOs
+import org.junit.jupiter.api.condition.OS
+
 import java.io.File
 import java.nio.file.Files
 import kotlin.io.path.createTempDirectory
@@ -69,6 +72,7 @@ class LinuxDesktopEntriesTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     fun `resolves symlink to the canonical Exec path`() {
         withTempDesktopTree { home, env ->
             val applications = File(env.getValue("XDG_DATA_HOME"), "applications")
